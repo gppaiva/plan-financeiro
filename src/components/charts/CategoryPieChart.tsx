@@ -54,11 +54,11 @@ export function CategoryPieChart({ data }: CategoryPieChartProps) {
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number) =>
+            formatter={(value) =>
               new Intl.NumberFormat('pt-BR', {
                 style: 'currency',
                 currency: 'BRL',
-              }).format(value)
+              }).format(Number(value))
             }
           />
         </PieChart>

@@ -83,7 +83,7 @@ export function MonthlyEvolutionChart({ data }: MonthlyEvolutionChartProps) {
           tickFormatter={(v: number) => currencyFormatter.format(v)}
         />
         <Tooltip
-          formatter={(value: number) => currencyFormatter.format(value)}
+          formatter={(value) => currencyFormatter.format(Number(value))}
           contentStyle={{
             backgroundColor: 'var(--bg)',
             border: '1px solid var(--border)',
