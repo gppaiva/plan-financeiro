@@ -1,0 +1,94 @@
+@import "tailwindcss";
+
+/* ===== Theme CSS Variables ===== */
+:root {
+  --primary: #030213;
+  --primary-fg: #fff;
+  --bg: #fff;
+  --bg2: #f3f3f5;
+  --bg3: #ececf0;
+  --text: #030213;
+  --text2: #717182;
+  --border: rgba(0, 0, 0, 0.1);
+  --green: #16a34a;
+  --red: #d4183d;
+  --blue: #2563eb;
+  --orange: #ea580c;
+  --card-bg: #fff;
+}
+
+[data-theme="dark"] {
+  --primary: #f5f5f5;
+  --primary-fg: #030213;
+  --bg: #0f0f13;
+  --bg2: #1a1a22;
+  --bg3: #23232e;
+  --text: #f5f5f5;
+  --text2: #9999aa;
+  --border: rgba(255, 255, 255, 0.1);
+  --green: #16a34a;
+  --red: #d4183d;
+  --blue: #2563eb;
+  --orange: #ea580c;
+  --card-bg: #1a1a22;
+}
+
+/* ===== Tailwind Theme Integration ===== */
+@theme {
+  --color-primary: var(--primary);
+  --color-primary-fg: var(--primary-fg);
+  --color-bg: var(--bg);
+  --color-bg2: var(--bg2);
+  --color-bg3: var(--bg3);
+  --color-text: var(--text);
+  --color-text2: var(--text2);
+  --color-border: var(--border);
+  --color-green: var(--green);
+  --color-red: var(--red);
+  --color-blue: var(--blue);
+  --color-orange: var(--orange);
+  --color-card-bg: var(--card-bg);
+}
+
+/* ===== Base Styles ===== */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* Safe area for iPhone notch and home indicator */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+[data-theme="dark"] body {
+  background-color: #070709;
+}
+
+/* ===== Animations ===== */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Hide scrollbar for clean mobile look */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

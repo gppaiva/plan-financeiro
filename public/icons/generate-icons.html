@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head><title>Gerar Ícones PWA</title></head>
+<body>
+<h1>Clique nos links para baixar os ícones</h1>
+<canvas id="c192" width="192" height="192"></canvas>
+<canvas id="c512" width="512" height="512"></canvas>
+<br>
+<a id="dl192" download="icon-192.png">Baixar 192x192</a> |
+<a id="dl512" download="icon-512.png">Baixar 512x512</a>
+<script>
+function draw(id, size) {
+  const c = document.getElementById(id);
+  const ctx = c.getContext('2d');
+  const r = size * 0.2;
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(size - r, 0);
+  ctx.quadraticCurveTo(size, 0, size, r);
+  ctx.lineTo(size, size - r);
+  ctx.quadraticCurveTo(size, size, size - r, size);
+  ctx.lineTo(r, size);
+  ctx.quadraticCurveTo(0, size, 0, size - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+  ctx.fillStyle = '#030213';
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${size * 0.52}px -apple-system, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('P', size / 2, size / 2 + size * 0.03);
+  return c.toDataURL('image/png');
+}
+document.getElementById('dl192').href = draw('c192', 192);
+document.getElementById('dl512').href = draw('c512', 512);
+</script>
+</body>
+</html>
