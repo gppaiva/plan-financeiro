@@ -12,10 +12,15 @@ export async function listExpenses(
   userId: string,
   filters?: ExpenseFilters,
 ): Promise<Expense[]> {
-  let query = supabase.from(TABLE).select('*').eq('user_id', userId)
+  // RLS handles user filtering, but we add user_id for extra safety
+  let query = supabase.from(TABLE).select('*')
+
+  // Only filter by user_id if provided (RLS already handles access control)
+  if (userId) {
+    query = query.eq('user_id', userId)
+  }
 
   if (filters) {
-    // Filter by month/year using data_vencimento range
     const startDate = `${filters.year}-${String(filters.month).padStart(2, '0')}-01`
     const lastDay = new Date(filters.year, filters.month, 0).getDate()
     const endDate = `${filters.year}-${String(filters.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`

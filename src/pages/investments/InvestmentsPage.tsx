@@ -4,12 +4,12 @@ import { PageContainer } from '../../components/layout/PageContainer'
 import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { useInvestmentsStore } from '../../stores/investments.store'
-import { useAuthStore } from '../../stores/auth.store'
+import { useProfile } from '../../hooks/useProfile'
 import { investmentAccountSchema, investmentTransactionSchema } from '../../schemas/investment.schema'
 import { formatCurrency } from '../../lib/format'
 
 export function InvestmentsPage() {
-  const user = useAuthStore((s) => s.user)
+  const { profileId } = useProfile()
   const { accounts, loading, fetchAccounts, createAccount, addDeposit, addWithdrawal } =
     useInvestmentsStore()
   const { showToast } = useToast()
@@ -31,10 +31,10 @@ export function InvestmentsPage() {
   const [txData, setTxData] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
-    if (user) {
-      fetchAccounts(user.id)
+    if (profileId) {
+      fetchAccounts(profileId)
     }
-  }, [user, fetchAccounts])
+  }, [profileId, fetchAccounts])
 
   const totalInvested = useMemo(
     () => accounts.reduce((sum, a) => sum + a.saldo_atual, 0),
@@ -55,7 +55,7 @@ export function InvestmentsPage() {
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
+    if (!profileId) return
 
     const parsed = investmentAccountSchema.safeParse({
       nome: accountNome,
@@ -70,7 +70,7 @@ export function InvestmentsPage() {
 
     setSubmitting(true)
     try {
-      await createAccount(user.id, parsed.data)
+      await createAccount(profileId, parsed.data)
       showToast('Conta criada!', 'success')
       setShowAccountModal(false)
       resetAccountForm()

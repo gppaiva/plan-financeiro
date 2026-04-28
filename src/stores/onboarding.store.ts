@@ -4,7 +4,6 @@ interface OnboardingData {
   step1: Record<string, unknown>
   step2: Record<string, unknown>
   step3: Record<string, unknown>
-  step4: Record<string, unknown>
 }
 
 interface OnboardingState {
@@ -20,7 +19,6 @@ const initialData: OnboardingData = {
   step1: {},
   step2: {},
   step3: {},
-  step4: {},
 }
 
 export const useOnboardingStore = create<OnboardingState>((set) => ({
@@ -29,7 +27,7 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
 
   nextStep: () =>
     set((state) => ({
-      step: Math.min(state.step + 1, 4),
+      step: Math.min(state.step + 1, 3),
     })),
 
   prevStep: () =>
@@ -48,6 +46,6 @@ export const useOnboardingStore = create<OnboardingState>((set) => ({
   reset: () =>
     set({
       step: 1,
-      data: { step1: {}, step2: {}, step3: {}, step4: {} },
+      data: { step1: {}, step2: {}, step3: {} },
     }),
 }))

@@ -4,7 +4,7 @@ import { PageContainer } from '../../components/layout/PageContainer'
 import { CategoryPieChart } from '../../components/charts/CategoryPieChart'
 import { MonthlyEvolutionChart } from '../../components/charts/MonthlyEvolutionChart'
 import { useExpensesStore } from '../../stores/expenses.store'
-import { useAuthStore } from '../../stores/auth.store'
+import { useProfile } from '../../hooks/useProfile'
 import { getCategoryBreakdown, getMonthlyEvolution } from '../../services/reports.service'
 import { formatCurrency } from '../../lib/format'
 
@@ -14,7 +14,7 @@ const MONTHS = [
 ]
 
 export function ReportsPage() {
-  const user = useAuthStore((s) => s.user)
+  const { profileId } = useProfile()
   const { expenses, fetchExpenses } = useExpensesStore()
 
   const now = new Date()
@@ -25,14 +25,14 @@ export function ReportsPage() {
   >([])
 
   useEffect(() => {
-    if (user) {
-      fetchExpenses(user.id, { month: selectedMonth, year: selectedYear })
+    if (profileId) {
+      fetchExpenses(profileId, { month: selectedMonth, year: selectedYear })
     }
-  }, [user, selectedMonth, selectedYear, fetchExpenses])
+  }, [profileId, selectedMonth, selectedYear, fetchExpenses])
 
   useEffect(() => {
-    if (user) {
-      getMonthlyEvolution(user.id, selectedYear, 0).then((data) => {
+    if (profileId) {
+      getMonthlyEvolution(profileId, selectedYear, 0).then((data) => {
         setEvolutionData(
           data.map((d) => ({
             month: String(d.month).padStart(2, '0'),
@@ -44,7 +44,7 @@ export function ReportsPage() {
         // Silently handle error
       })
     }
-  }, [user, selectedYear])
+  }, [profileId, selectedYear])
 
   const categoryBreakdown = useMemo(
     () => getCategoryBreakdown(expenses),

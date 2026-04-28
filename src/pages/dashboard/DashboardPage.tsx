@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Header } from '../../components/layout/Header'
 import { PageContainer } from '../../components/layout/PageContainer'
+import { MonthYearSelector } from '../../components/ui/MonthYearSelector'
 import { useExpensesStore } from '../../stores/expenses.store'
 import { useThirdPartyStore } from '../../stores/third-party.store'
-import { useAuthStore } from '../../stores/auth.store'
+import { useProfile } from '../../hooks/useProfile'
 import { filterByQuinzena, calculatePaidTotal, calculatePendingTotal } from '../../lib/quinzena'
 import { formatCurrency } from '../../lib/format'
 import type { Quinzena, Expense, ExpenseCategory } from '../../types'
@@ -11,19 +12,27 @@ import type { Quinzena, Expense, ExpenseCategory } from '../../types'
 type QuinzenaFilter = 'all' | Quinzena
 
 export function DashboardPage() {
-  const user = useAuthStore((s) => s.user)
+  const { profile, profileId } = useProfile()
   const { expenses, fetchExpenses } = useExpensesStore()
   const { expenses: thirdPartyExpenses, fetchExpenses: fetchThirdParty } = useThirdPartyStore()
   const [quinzenaFilter, setQuinzenaFilter] = useState<QuinzenaFilter>('all')
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
 
+  const now = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+
+  const handleMonthChange = useCallback((month: number, year: number) => {
+    setSelectedMonth(month)
+    setSelectedYear(year)
+  }, [])
+
   useEffect(() => {
-    if (user) {
-      const now = new Date()
-      fetchExpenses(user.id, { month: now.getMonth() + 1, year: now.getFullYear() })
-      fetchThirdParty(user.id)
+    if (profileId) {
+      fetchExpenses(profileId, { month: selectedMonth, year: selectedYear })
+      fetchThirdParty(profileId)
     }
-  }, [user, fetchExpenses, fetchThirdParty])
+  }, [profileId, selectedMonth, selectedYear, fetchExpenses, fetchThirdParty])
 
   const filteredExpenses = useMemo(
     () => filterByQuinzena(expenses, quinzenaFilter),
@@ -43,7 +52,7 @@ export function DashboardPage() {
   const paidTotal = useMemo(() => calculatePaidTotal(filteredExpenses), [filteredExpenses])
   const pendingTotal = useMemo(() => calculatePendingTotal(filteredExpenses), [filteredExpenses])
 
-  const income = 0
+  const income = profile?.salario_liquido ?? 0
   const saldoReal = income - totalExpenses
 
   const categoryGroups = useMemo(() => {
@@ -62,75 +71,150 @@ export function DashboardPage() {
     { label: 'Último dia útil', value: '2' },
   ]
 
+  const miniCardStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.12)',
+    borderRadius: 10,
+    padding: 10,
+    flex: 1,
+  }
+
   return (
     <PageContainer>
       <Header title="Dashboard" />
 
+      <MonthYearSelector
+        month={selectedMonth}
+        year={selectedYear}
+        onChange={handleMonthChange}
+      />
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 20px' }}>
-        {/* Balance Card */}
+        {/* Balance Card - Blue gradient */}
         <div
           style={{
-            background: 'linear-gradient(135deg, #1e3a5f 0%, #0f2440 100%)',
+            background: 'linear-gradient(135deg, #2563eb 0%, #60a5fa 100%)',
             borderRadius: 20,
             padding: 24,
             color: '#fff',
+            position: 'relative',
           }}
         >
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>Saldo Real</p>
-          <p style={{ fontSize: 28, fontWeight: 700, margin: '6px 0 0' }}>
+          {/* Edit icon top-right */}
+          <button
+            type="button"
+            style={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              background: 'rgba(255,255,255,0.15)',
+              border: 'none',
+              borderRadius: 8,
+              padding: 6,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            aria-label="Editar saldo"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+            </svg>
+          </button>
+
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', margin: 0 }}>
+            Saldo Real Disponível
+          </p>
+          <p style={{ fontSize: 28, fontWeight: 700, margin: '6px 0 16px' }}>
             {formatCurrency(saldoReal)}
           </p>
-          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 8, margin: '8px 0 0' }}>
-            Receita - Despesas pessoais
-          </p>
-        </div>
 
-        {/* Mini cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 16,
-              border: '1px solid #e2e8f0',
-              padding: 16,
-            }}
-          >
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Receita</p>
-            <p style={{ fontSize: 18, fontWeight: 600, color: '#16a34a', marginTop: 6, margin: '6px 0 0' }}>
-              {formatCurrency(income)}
-            </p>
-          </div>
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 16,
-              border: '1px solid #e2e8f0',
-              padding: 16,
-            }}
-          >
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Despesas</p>
-            <p style={{ fontSize: 18, fontWeight: 600, color: '#dc2626', marginTop: 6, margin: '6px 0 0' }}>
-              {formatCurrency(totalExpenses)}
-            </p>
-          </div>
-        </div>
+          {/* Mini cards inside gradient: Ganho + Despesas */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <div style={miniCardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.8)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="7" y1="17" x2="17" y2="7" />
+                  <polyline points="7 7 17 7 17 17" />
+                </svg>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Ganho</span>
+              </div>
+              <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                {formatCurrency(income)}
+              </p>
+            </div>
 
-        {/* Third party total */}
-        {thirdPartyTotal > 0 && (
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 16,
-              border: '1px solid #e2e8f0',
-              padding: 16,
-            }}
-          >
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Gastos com Terceiros</p>
-            <p style={{ fontSize: 18, fontWeight: 600, color: '#ea580c', marginTop: 6, margin: '6px 0 0' }}>
-              {formatCurrency(thirdPartyTotal)}
-            </p>
+            <div style={miniCardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.8)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <line x1="7" y1="7" x2="17" y2="17" />
+                  <polyline points="17 7 17 17 7 17" />
+                </svg>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Despesas</span>
+              </div>
+              <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                {formatCurrency(totalExpenses)}
+              </p>
+            </div>
           </div>
-        )}
+
+          {/* Third party mini card (full width, only if > 0) */}
+          {thirdPartyTotal > 0 && (
+            <div style={{ ...miniCardStyle, flex: 'none', marginTop: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.8)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
+                  Terceiros (excl. saldo)
+                </span>
+              </div>
+              <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                {formatCurrency(thirdPartyTotal)}
+              </p>
+            </div>
+          )}
+        </div>
 
         {/* Quinzena filter pills */}
         <div style={{ display: 'flex', gap: 8 }}>

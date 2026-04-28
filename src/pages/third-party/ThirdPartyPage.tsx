@@ -4,13 +4,13 @@ import { PageContainer } from '../../components/layout/PageContainer'
 import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { useThirdPartyStore } from '../../stores/third-party.store'
-import { useAuthStore } from '../../stores/auth.store'
+import { useProfile } from '../../hooks/useProfile'
 import { thirdPartyExpenseSchema } from '../../schemas/third-party.schema'
 import { formatCurrency, formatDate } from '../../lib/format'
 import type { ThirdPartyExpense } from '../../types'
 
 export function ThirdPartyPage() {
-  const user = useAuthStore((s) => s.user)
+  const { profileId } = useProfile()
   const { expenses, loading, fetchExpenses, addExpense, toggleStatus } =
     useThirdPartyStore()
   const { showToast } = useToast()
@@ -26,10 +26,10 @@ export function ThirdPartyPage() {
   )
 
   useEffect(() => {
-    if (user) {
-      fetchExpenses(user.id)
+    if (profileId) {
+      fetchExpenses(profileId)
     }
-  }, [user, fetchExpenses])
+  }, [profileId, fetchExpenses])
 
   // Group by person
   const groupedByPerson = useMemo(() => {
@@ -56,7 +56,7 @@ export function ThirdPartyPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
+    if (!profileId) return
 
     const parsed = thirdPartyExpenseSchema.safeParse({
       pessoa,
@@ -74,7 +74,7 @@ export function ThirdPartyPage() {
 
     setSubmitting(true)
     try {
-      await addExpense(user.id, parsed.data)
+      await addExpense(profileId, parsed.data)
       showToast('Despesa adicionada!', 'success')
       setShowModal(false)
       resetForm()

@@ -4,6 +4,7 @@ import { useToast } from '../../components/ui/Toast'
 import { useOnboardingStore } from '../../stores/onboarding.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { createProfile } from '../../services/profile.service'
+import { parseCurrency, formatCurrencyInput } from '../../lib/format'
 
 export function OnboardingPage() {
   const navigate = useNavigate()
@@ -12,22 +13,22 @@ export function OnboardingPage() {
   const { step, data, nextStep, prevStep, setStepData } = useOnboardingStore()
   const [loading, setLoading] = useState(false)
 
-  const step1 = data.step1 as { nome?: string; email?: string; telefone?: string }
-  const step2 = data.step2 as { ciclo?: string }
-  const step3 = data.step3 as {
-    salario_bruto?: string
-    salario_liquido?: string
-    quinzena1?: string
-    quinzena2?: string
+  // Step 1 = Ciclo de pagamento (was step 2)
+  const step1 = data.step1 as { ciclo?: string }
+  // Step 2 = Renda (was step 3)
+  const step2 = data.step2 as {
+    salario_bruto?: number
+    salario_bruto_display?: string
+    salario_liquido?: number
+    salario_liquido_display?: string
+    quinzena1?: number
+    quinzena1_display?: string
+    quinzena2?: number
+    quinzena2_display?: string
   }
+  // Step 3 = Rendimentos extras (was step 4)
 
   const handleNext = () => {
-    if (step === 1) {
-      if (!step1.nome?.trim()) {
-        showToast('Nome é obrigatório', 'error')
-        return
-      }
-    }
     nextStep()
   }
 
@@ -36,13 +37,13 @@ export function OnboardingPage() {
     setLoading(true)
 
     try {
-      const salarioLiquido = parseFloat(step3.salario_liquido || '0') || 0
-      const q1 = parseFloat(step3.quinzena1 || '0') || 0
-      const q2 = parseFloat(step3.quinzena2 || '0') || 0
+      const salarioLiquido = step2.salario_liquido || 0
+      const q1 = step2.quinzena1 || 0
+      const q2 = step2.quinzena2 || 0
 
       await createProfile(user.id, {
-        nome: step1.nome || user.user_metadata?.nome || '',
-        email: step1.email || user.email || '',
+        nome: user.user_metadata?.nome || user.user_metadata?.full_name || '',
+        email: user.email || '',
         salario_liquido: salarioLiquido,
         dia_pagamento_1: q1 > 0 ? 15 : 15,
         dia_pagamento_2: q2 > 0 ? 30 : 30,
@@ -57,18 +58,46 @@ export function OnboardingPage() {
     }
   }
 
-  const progressPercent = (step / 4) * 100
+  const progressPercent = (step / 3) * 100
+
+  const totalSteps = 3
 
   const stepIcons = [
-    // Step 1 - User
-    <svg key="s1" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
-    // Step 2 - Calendar
-    <svg key="s2" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
-    // Step 3 - Dollar
-    <svg key="s3" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
-    // Step 4 - Check
-    <svg key="s4" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+    // Step 1 - Calendar (payment cycle)
+    <svg key="s1" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+    // Step 2 - Dollar (salary)
+    <svg key="s2" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+    // Step 3 - Check (extras / finish)
+    <svg key="s3" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
   ]
+
+  // Currency input handler: user types freely, we parse on change and format on blur
+  const handleCurrencyChange = (
+    stepNum: number,
+    field: string,
+    displayField: string,
+    rawValue: string,
+  ) => {
+    const currentStepData = stepNum === 2 ? step2 : {}
+    setStepData(stepNum, {
+      ...currentStepData,
+      [displayField]: rawValue,
+      [field]: parseCurrency(rawValue),
+    })
+  }
+
+  const handleCurrencyBlur = (
+    stepNum: number,
+    field: string,
+    displayField: string,
+  ) => {
+    const currentStepData = stepNum === 2 ? step2 : {}
+    const numericValue = (currentStepData as Record<string, unknown>)[field] as number || 0
+    setStepData(stepNum, {
+      ...currentStepData,
+      [displayField]: formatCurrencyInput(numericValue),
+    })
+  }
 
   // Shared input style
   const inputWrapStyle: React.CSSProperties = {
@@ -126,7 +155,7 @@ export function OnboardingPage() {
           Configuração inicial
         </h1>
         <p style={{ fontSize: 14, color: '#64748b', marginTop: 4 }}>
-          Etapa {step} de 4
+          Etapa {step} de {totalSteps}
         </p>
       </div>
 
@@ -164,61 +193,8 @@ export function OnboardingPage() {
           boxShadow: '0 -4px 30px rgba(0,0,0,0.06)',
         }}
       >
-        {/* Step content */}
+        {/* Step 1: Ciclo de pagamento */}
         {step === 1 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
-              Dados pessoais
-            </h2>
-
-            <div>
-              <label style={labelStyle}>Nome</label>
-              <div style={inputWrapStyle}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                <input
-                  type="text"
-                  placeholder="Seu nome completo"
-                  value={step1.nome || ''}
-                  onChange={(e) => setStepData(1, { ...step1, nome: e.target.value })}
-                  style={inputStyle}
-                  autoComplete="name"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={labelStyle}>E-mail</label>
-              <div style={inputWrapStyle}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-                <input
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={step1.email || user?.email || ''}
-                  onChange={(e) => setStepData(1, { ...step1, email: e.target.value })}
-                  style={inputStyle}
-                  autoComplete="email"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={labelStyle}>Telefone</label>
-              <div style={inputWrapStyle}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                <input
-                  type="tel"
-                  placeholder="(11) 99999-9999"
-                  value={step1.telefone || ''}
-                  onChange={(e) => setStepData(1, { ...step1, telefone: e.target.value })}
-                  style={inputStyle}
-                  autoComplete="tel"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
               Ciclo de pagamento
@@ -229,11 +205,11 @@ export function OnboardingPage() {
 
             <button
               type="button"
-              onClick={() => setStepData(2, { ciclo: 'quinzenal' })}
+              onClick={() => setStepData(1, { ciclo: 'quinzenal' })}
               style={{
                 borderRadius: 16,
-                border: step2.ciclo === 'quinzenal' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
-                background: step2.ciclo === 'quinzenal' ? 'rgba(37,99,235,0.04)' : '#fff',
+                border: step1.ciclo === 'quinzenal' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
+                background: step1.ciclo === 'quinzenal' ? 'rgba(37,99,235,0.04)' : '#fff',
                 padding: 18,
                 textAlign: 'left',
                 cursor: 'pointer',
@@ -247,11 +223,11 @@ export function OnboardingPage() {
 
             <button
               type="button"
-              onClick={() => setStepData(2, { ciclo: 'mensal' })}
+              onClick={() => setStepData(1, { ciclo: 'mensal' })}
               style={{
                 borderRadius: 16,
-                border: step2.ciclo === 'mensal' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
-                background: step2.ciclo === 'mensal' ? 'rgba(37,99,235,0.04)' : '#fff',
+                border: step1.ciclo === 'mensal' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
+                background: step1.ciclo === 'mensal' ? 'rgba(37,99,235,0.04)' : '#fff',
                 padding: 18,
                 textAlign: 'left',
                 cursor: 'pointer',
@@ -265,7 +241,8 @@ export function OnboardingPage() {
           </div>
         )}
 
-        {step === 3 && (
+        {/* Step 2: Renda (with currency mask) */}
+        {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
               Renda
@@ -274,12 +251,16 @@ export function OnboardingPage() {
             <div>
               <label style={labelStyle}>Salário bruto</label>
               <div style={inputWrapStyle}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="0,00"
-                  value={step3.salario_bruto || ''}
-                  onChange={(e) => setStepData(3, { ...step3, salario_bruto: e.target.value })}
+                  value={step2.salario_bruto_display ?? formatCurrencyInput(step2.salario_bruto || 0)}
+                  onChange={(e) =>
+                    handleCurrencyChange(2, 'salario_bruto', 'salario_bruto_display', e.target.value)
+                  }
+                  onBlur={() => handleCurrencyBlur(2, 'salario_bruto', 'salario_bruto_display')}
                   style={inputStyle}
                 />
               </div>
@@ -288,28 +269,36 @@ export function OnboardingPage() {
             <div>
               <label style={labelStyle}>Salário líquido</label>
               <div style={inputWrapStyle}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="0,00"
-                  value={step3.salario_liquido || ''}
-                  onChange={(e) => setStepData(3, { ...step3, salario_liquido: e.target.value })}
+                  value={step2.salario_liquido_display ?? formatCurrencyInput(step2.salario_liquido || 0)}
+                  onChange={(e) =>
+                    handleCurrencyChange(2, 'salario_liquido', 'salario_liquido_display', e.target.value)
+                  }
+                  onBlur={() => handleCurrencyBlur(2, 'salario_liquido', 'salario_liquido_display')}
                   style={inputStyle}
                 />
               </div>
             </div>
 
-            {step2.ciclo === 'quinzenal' && (
+            {step1.ciclo === 'quinzenal' && (
               <>
                 <div>
                   <label style={labelStyle}>Valor quinzena 1 (dia 15)</label>
                   <div style={inputWrapStyle}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="0,00"
-                      value={step3.quinzena1 || ''}
-                      onChange={(e) => setStepData(3, { ...step3, quinzena1: e.target.value })}
+                      value={step2.quinzena1_display ?? formatCurrencyInput(step2.quinzena1 || 0)}
+                      onChange={(e) =>
+                        handleCurrencyChange(2, 'quinzena1', 'quinzena1_display', e.target.value)
+                      }
+                      onBlur={() => handleCurrencyBlur(2, 'quinzena1', 'quinzena1_display')}
                       style={inputStyle}
                     />
                   </div>
@@ -318,12 +307,16 @@ export function OnboardingPage() {
                 <div>
                   <label style={labelStyle}>Valor quinzena 2 (último dia útil)</label>
                   <div style={inputWrapStyle}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       placeholder="0,00"
-                      value={step3.quinzena2 || ''}
-                      onChange={(e) => setStepData(3, { ...step3, quinzena2: e.target.value })}
+                      value={step2.quinzena2_display ?? formatCurrencyInput(step2.quinzena2 || 0)}
+                      onChange={(e) =>
+                        handleCurrencyChange(2, 'quinzena2', 'quinzena2_display', e.target.value)
+                      }
+                      onBlur={() => handleCurrencyBlur(2, 'quinzena2', 'quinzena2_display')}
                       style={inputStyle}
                     />
                   </div>
@@ -333,7 +326,8 @@ export function OnboardingPage() {
           </div>
         )}
 
-        {step === 4 && (
+        {/* Step 3: Rendimentos extras */}
+        {step === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
               Rendimentos extras
@@ -401,7 +395,7 @@ export function OnboardingPage() {
               Voltar
             </button>
           )}
-          {step < 4 ? (
+          {step < totalSteps ? (
             <button
               onClick={handleNext}
               style={{
