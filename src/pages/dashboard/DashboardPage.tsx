@@ -57,7 +57,10 @@ export function DashboardPage() {
       clearProfileCache()
       showToast('Renda atualizada!', 'success')
       setShowIncomeModal(false)
-      window.location.reload()
+      // Re-fetch by navigating (soft reload)
+      setTimeout(() => {
+        window.location.href = '/dashboard'
+      }, 300)
     } catch {
       showToast('Erro ao atualizar renda', 'error')
     } finally {
