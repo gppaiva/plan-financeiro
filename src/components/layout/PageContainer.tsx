@@ -7,8 +7,24 @@ interface PageContainerProps {
 
 export function PageContainer({ children }: PageContainerProps) {
   return (
-    <div className="flex min-h-screen flex-col bg-bg">
-      <main className="mx-auto w-full max-w-[390px] flex-1 pb-20 sm:max-w-[640px] lg:max-w-[960px]">
+    <div
+      style={{
+        minHeight: '100vh',
+        minHeight: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#f8fafc',
+      }}
+    >
+      <main
+        style={{
+          flex: 1,
+          width: '100%',
+          maxWidth: 430,
+          margin: '0 auto',
+          paddingBottom: 80,
+        }}
+      >
         {children}
       </main>
       <TabBar />

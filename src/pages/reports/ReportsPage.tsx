@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Header } from '../../components/layout/Header'
 import { PageContainer } from '../../components/layout/PageContainer'
-import { Card } from '../../components/ui/Card'
 import { CategoryPieChart } from '../../components/charts/CategoryPieChart'
 import { MonthlyEvolutionChart } from '../../components/charts/MonthlyEvolutionChart'
 import { useExpensesStore } from '../../stores/expenses.store'
@@ -54,17 +53,28 @@ export function ReportsPage() {
 
   const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i)
 
+  const selectStyle: React.CSSProperties = {
+    borderRadius: 12,
+    border: '1px solid #e2e8f0',
+    padding: '10px 14px',
+    fontSize: 14,
+    color: '#1e293b',
+    background: '#fff',
+    outline: 'none',
+    appearance: 'none' as const,
+  }
+
   return (
     <PageContainer>
       <Header title="Relatórios" />
 
-      <div className="flex flex-col gap-4 p-4">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 20px' }}>
         {/* Period filter */}
-        <div className="flex gap-2">
+        <div style={{ display: 'flex', gap: 10 }}>
           <select
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="flex-1 rounded-xl border border-border bg-bg2 px-3 py-2 text-sm text-text"
+            style={{ ...selectStyle, flex: 1 }}
           >
             {MONTHS.map((m, i) => (
               <option key={i + 1} value={i + 1}>
@@ -75,7 +85,7 @@ export function ReportsPage() {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="rounded-xl border border-border bg-bg2 px-3 py-2 text-sm text-text"
+            style={selectStyle}
           >
             {years.map((y) => (
               <option key={y} value={y}>
@@ -86,59 +96,104 @@ export function ReportsPage() {
         </div>
 
         {/* Category Pie Chart */}
-        <Card className="p-4">
-          <h2 className="mb-3 text-sm font-semibold text-text">
+        <div
+          style={{
+            background: '#fff',
+            borderRadius: 20,
+            padding: 20,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          }}
+        >
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', margin: '0 0 14px' }}>
             Despesas por Categoria
           </h2>
           <CategoryPieChart data={categoryBreakdown} />
-        </Card>
+        </div>
 
         {/* Monthly Evolution Chart */}
-        <Card className="p-4">
-          <h2 className="mb-3 text-sm font-semibold text-text">
+        <div
+          style={{
+            background: '#fff',
+            borderRadius: 20,
+            padding: 20,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          }}
+        >
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', margin: '0 0 14px' }}>
             Evolução Mensal
           </h2>
           <MonthlyEvolutionChart data={evolutionData} />
-        </Card>
+        </div>
 
         {/* Category percentage list */}
-        <Card className="overflow-hidden">
-          <div className="border-b border-border p-4">
-            <h2 className="text-sm font-semibold text-text">
+        <div
+          style={{
+            background: '#fff',
+            borderRadius: 16,
+            overflow: 'hidden',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div
+            style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid #e2e8f0',
+            }}
+          >
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', margin: 0 }}>
               Detalhamento por Categoria
             </h2>
           </div>
           {categoryBreakdown.length === 0 ? (
-            <p className="p-4 text-center text-sm text-text2">
+            <p style={{ padding: '24px 20px', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
               Nenhum dado disponível
             </p>
           ) : (
-            categoryBreakdown.map((item) => (
+            categoryBreakdown.map((item, index) => (
               <div
                 key={item.categoria}
-                className="flex items-center justify-between border-b border-border/50 px-4 py-3 last:border-b-0"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 20px',
+                  borderBottom: index < categoryBreakdown.length - 1 ? '1px solid #f1f5f9' : 'none',
+                }}
               >
-                <div className="flex-1">
-                  <p className="text-sm text-text">{item.categoria}</p>
-                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-bg2">
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 14, color: '#334155', margin: 0 }}>{item.categoria}</p>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      height: 6,
+                      borderRadius: 3,
+                      background: '#e2e8f0',
+                      overflow: 'hidden',
+                    }}
+                  >
                     <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${item.percentual}%` }}
+                      style={{
+                        height: '100%',
+                        borderRadius: 3,
+                        background: '#2563eb',
+                        width: `${item.percentual}%`,
+                        transition: 'width 0.3s ease',
+                      }}
                     />
                   </div>
                 </div>
-                <div className="ml-4 text-right">
-                  <p className="text-sm font-medium text-text">
+                <div style={{ marginLeft: 16, textAlign: 'right', flexShrink: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: '#1e293b', margin: 0 }}>
                     {formatCurrency(item.total)}
                   </p>
-                  <p className="text-xs text-text2">
+                  <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, margin: '2px 0 0' }}>
                     {item.percentual.toFixed(1)}%
                   </p>
                 </div>
               </div>
             ))
           )}
-        </Card>
+        </div>
       </div>
     </PageContainer>
   )

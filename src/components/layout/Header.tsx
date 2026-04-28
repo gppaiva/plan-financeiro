@@ -17,20 +17,45 @@ export function Header({ title }: HeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-bg px-4 py-3">
-      <h1 className="text-lg font-semibold text-text">{title}</h1>
+    <header
+      style={{
+        position: 'sticky',
+        top: 0,
+        zIndex: 40,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        borderBottom: '1px solid #e2e8f0',
+        background: '#fff',
+        padding: '14px 20px',
+      }}
+    >
+      <h1 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
+        {title}
+      </h1>
 
-      <div className="flex items-center gap-2">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* Theme toggle */}
         <button
           onClick={toggle}
-          className="rounded-lg p-2 text-text2 transition-colors hover:bg-bg2"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            background: '#f1f5f9',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: '#64748b',
+          }}
           aria-label={isDark ? 'Ativar tema claro' : 'Ativar tema escuro'}
         >
           {isDark ? (
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -51,8 +76,8 @@ export function Header({ title }: HeaderProps) {
             </svg>
           ) : (
             <svg
-              width="20"
-              height="20"
+              width="18"
+              height="18"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -69,12 +94,23 @@ export function Header({ title }: HeaderProps) {
         {/* Logout */}
         <button
           onClick={handleLogout}
-          className="rounded-lg p-2 text-text2 transition-colors hover:bg-bg2"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            background: '#f1f5f9',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: '#64748b',
+          }}
           aria-label="Sair"
         >
           <svg
-            width="20"
-            height="20"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"

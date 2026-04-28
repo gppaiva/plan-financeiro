@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Header } from '../../components/layout/Header'
 import { PageContainer } from '../../components/layout/PageContainer'
-import { Card } from '../../components/ui/Card'
-import { Button } from '../../components/ui/Button'
-import { Input } from '../../components/ui/Input'
-import { Select } from '../../components/ui/Select'
 import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { useExpensesStore } from '../../stores/expenses.store'
@@ -13,7 +9,18 @@ import { expenseSchema } from '../../schemas/expense.schema'
 import { formatCurrency, formatDate } from '../../lib/format'
 import { EXPENSE_CATEGORIES } from '../../types'
 
-const categoryOptions = EXPENSE_CATEGORIES.map((c) => ({ value: c, label: c }))
+const categoryEmojis: Record<string, string> = {
+  'Alimentação': '🍔',
+  'Transporte': '🚗',
+  'Educação': '📚',
+  'Lazer': '🎮',
+  'Saúde': '💊',
+  'Moradia': '🏠',
+  'Cartão': '💳',
+  'Utilidades': '💡',
+  'Outros': '📦',
+}
+
 const quinzenaOptions = [
   { value: '1', label: 'Dia 15' },
   { value: '2', label: 'Último dia útil' },
@@ -94,57 +101,153 @@ export function TransactionsPage() {
     }
   }
 
+  const inputWrapStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    border: '1.5px solid #e2e8f0',
+    borderRadius: 14,
+    padding: '14px 16px',
+    background: '#fff',
+  }
+  const inputStyle: React.CSSProperties = {
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    fontSize: 15,
+    color: '#1e293b',
+    background: 'transparent',
+    width: '100%',
+  }
+  const labelStyle: React.CSSProperties = {
+    display: 'block',
+    fontSize: 14,
+    fontWeight: 500,
+    color: '#1e293b',
+    marginBottom: 8,
+  }
+  const selectStyle: React.CSSProperties = {
+    width: '100%',
+    border: '1.5px solid #e2e8f0',
+    borderRadius: 14,
+    padding: '14px 16px',
+    fontSize: 15,
+    color: '#1e293b',
+    background: '#fff',
+    outline: 'none',
+    appearance: 'none' as const,
+  }
+
   return (
     <PageContainer>
       <Header title="Transações" />
 
-      <div className="flex flex-col gap-4 p-4">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 20px' }}>
         {/* Add button */}
-        <Button onClick={() => setShowModal(true)}>Adicionar</Button>
+        <button
+          onClick={() => setShowModal(true)}
+          style={{
+            width: '100%',
+            padding: '14px 0',
+            borderRadius: 14,
+            border: 'none',
+            background: '#2563eb',
+            color: '#fff',
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Adicionar
+        </button>
 
         {/* Expense list */}
         {loading ? (
-          <p className="py-8 text-center text-sm text-text2">Carregando...</p>
+          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
+            Carregando...
+          </p>
         ) : expenses.length === 0 ? (
-          <p className="py-8 text-center text-sm text-text2">
+          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
             Nenhuma transação encontrada
           </p>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {expenses.map((expense) => (
-              <Card key={expense.id} className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-text">
+              <div
+                key={expense.id}
+                style={{
+                  background: '#fff',
+                  borderRadius: 16,
+                  border: '1px solid #e2e8f0',
+                  padding: 16,
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1 }}>
+                  {/* Category emoji */}
+                  <div
+                    style={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      background: '#f1f5f9',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 18,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {categoryEmojis[expense.categoria] || '📦'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 500, color: '#1e293b', margin: 0 }}>
                       {expense.descricao}
                     </p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <span className="text-xs text-text2">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}>
                         {formatDate(expense.data_vencimento)}
                       </span>
-                      <span className="text-xs text-text2">•</span>
-                      <span className="text-xs text-text2">
+                      <span style={{ fontSize: 12, color: '#cbd5e1' }}>•</span>
+                      <span style={{ fontSize: 12, color: '#94a3b8' }}>
                         {expense.categoria}
                       </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-text">
-                      {formatCurrency(expense.valor)}
-                    </p>
-                    <button
-                      onClick={() => handleToggle(expense.id)}
-                      className={`mt-1 rounded-full px-2 py-0.5 text-xs font-medium ${
-                        expense.status === 'paid'
-                          ? 'bg-green/10 text-green'
-                          : 'bg-orange/10 text-orange'
-                      }`}
-                    >
-                      {expense.status === 'paid' ? 'Desfazer' : 'Pagar'}
-                    </button>
-                  </div>
                 </div>
-              </Card>
+                <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', margin: 0 }}>
+                    {formatCurrency(expense.valor)}
+                  </p>
+                  <button
+                    onClick={() => handleToggle(expense.id)}
+                    style={{
+                      marginTop: 6,
+                      borderRadius: 20,
+                      padding: '4px 12px',
+                      fontSize: 12,
+                      fontWeight: 500,
+                      border: 'none',
+                      cursor: 'pointer',
+                      background: expense.status === 'paid' ? 'rgba(22,163,74,0.1)' : 'rgba(234,88,12,0.1)',
+                      color: expense.status === 'paid' ? '#16a34a' : '#ea580c',
+                    }}
+                  >
+                    {expense.status === 'paid' ? 'Desfazer' : 'Pagar'}
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
         )}
@@ -156,50 +259,112 @@ export function TransactionsPage() {
         onClose={() => setShowModal(false)}
         title="Nova Despesa"
       >
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <Input
-            label="Descrição"
-            placeholder="Ex: Aluguel"
-            value={descricao}
-            onChange={setDescricao}
-          />
-          <Input
-            label="Valor"
-            type="number"
-            placeholder="0,00"
-            value={valor}
-            onChange={setValor}
-          />
-          <Select
-            label="Categoria"
-            options={categoryOptions}
-            value={categoria}
-            onChange={setCategoria}
-          />
-          <Select
-            label="Quinzena"
-            options={quinzenaOptions}
-            value={quinzena}
-            onChange={setQuinzena}
-          />
-          <Input
-            label="Data de vencimento"
-            type="date"
-            value={dataVencimento}
-            onChange={setDataVencimento}
-          />
-          <label className="flex items-center gap-2 text-sm text-text">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div>
+            <label style={labelStyle}>Descrição</label>
+            <div style={inputWrapStyle}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <input
+                type="text"
+                placeholder="Ex: Aluguel"
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Valor</label>
+            <div style={inputWrapStyle}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <input
+                type="number"
+                placeholder="0,00"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Categoria</label>
+            <select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              style={selectStyle}
+            >
+              {EXPENSE_CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Quinzena</label>
+            <select
+              value={quinzena}
+              onChange={(e) => setQuinzena(e.target.value)}
+              style={selectStyle}
+            >
+              {quinzenaOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={labelStyle}>Data de vencimento</label>
+            <div style={inputWrapStyle}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <input
+                type="date"
+                value={dataVencimento}
+                onChange={(e) => setDataVencimento(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          </div>
+
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              fontSize: 14,
+              color: '#334155',
+              cursor: 'pointer',
+            }}
+          >
             <input
               type="checkbox"
               checked={recorrente}
               onChange={(e) => setRecorrente(e.target.checked)}
-              className="h-4 w-4 rounded border-border"
+              style={{ width: 18, height: 18, accentColor: '#2563eb' }}
             />
             Despesa fixa (recorrente)
           </label>
-          <Button type="submit" disabled={submitting}>
+
+          <button
+            type="submit"
+            disabled={submitting}
+            style={{
+              width: '100%',
+              padding: '16px 0',
+              borderRadius: 14,
+              border: 'none',
+              background: '#2563eb',
+              color: '#fff',
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              opacity: submitting ? 0.6 : 1,
+              boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
+            }}
+          >
             {submitting ? 'Salvando...' : 'Salvar'}
-          </Button>
+          </button>
         </form>
       </Modal>
     </PageContainer>

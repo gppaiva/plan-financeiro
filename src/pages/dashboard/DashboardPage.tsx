@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { Header } from '../../components/layout/Header'
 import { PageContainer } from '../../components/layout/PageContainer'
-import { Card } from '../../components/ui/Card'
 import { useExpensesStore } from '../../stores/expenses.store'
 import { useThirdPartyStore } from '../../stores/third-party.store'
 import { useAuthStore } from '../../stores/auth.store'
@@ -44,8 +43,7 @@ export function DashboardPage() {
   const paidTotal = useMemo(() => calculatePaidTotal(filteredExpenses), [filteredExpenses])
   const pendingTotal = useMemo(() => calculatePendingTotal(filteredExpenses), [filteredExpenses])
 
-  // Assume a fixed income for display (could come from profile)
-  const income = 0 // Will be loaded from profile in a real scenario
+  const income = 0
   const saldoReal = income - totalExpenses
 
   const categoryGroups = useMemo(() => {
@@ -68,55 +66,89 @@ export function DashboardPage() {
     <PageContainer>
       <Header title="Dashboard" />
 
-      <div className="flex flex-col gap-4 p-4">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 20px' }}>
         {/* Balance Card */}
-        <Card className="bg-gradient-to-br from-primary to-primary/80 p-5">
-          <p className="text-sm text-primary-fg/70">Saldo Real</p>
-          <p className="mt-1 text-2xl font-bold text-primary-fg">
+        <div
+          style={{
+            background: 'linear-gradient(135deg, #1e3a5f 0%, #0f2440 100%)',
+            borderRadius: 20,
+            padding: 24,
+            color: '#fff',
+          }}
+        >
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.6)', margin: 0 }}>Saldo Real</p>
+          <p style={{ fontSize: 28, fontWeight: 700, margin: '6px 0 0' }}>
             {formatCurrency(saldoReal)}
           </p>
-          <p className="mt-2 text-xs text-primary-fg/60">
+          <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 8, margin: '8px 0 0' }}>
             Receita - Despesas pessoais
           </p>
-        </Card>
+        </div>
 
         {/* Mini cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="p-4">
-            <p className="text-xs text-text2">Receita</p>
-            <p className="mt-1 text-lg font-semibold text-green">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              border: '1px solid #e2e8f0',
+              padding: 16,
+            }}
+          >
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Receita</p>
+            <p style={{ fontSize: 18, fontWeight: 600, color: '#16a34a', marginTop: 6, margin: '6px 0 0' }}>
               {formatCurrency(income)}
             </p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-xs text-text2">Despesas</p>
-            <p className="mt-1 text-lg font-semibold text-red">
+          </div>
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              border: '1px solid #e2e8f0',
+              padding: 16,
+            }}
+          >
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Despesas</p>
+            <p style={{ fontSize: 18, fontWeight: 600, color: '#dc2626', marginTop: 6, margin: '6px 0 0' }}>
               {formatCurrency(totalExpenses)}
             </p>
-          </Card>
+          </div>
         </div>
 
         {/* Third party total */}
         {thirdPartyTotal > 0 && (
-          <Card className="p-4">
-            <p className="text-xs text-text2">Gastos com Terceiros</p>
-            <p className="mt-1 text-lg font-semibold text-orange">
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              border: '1px solid #e2e8f0',
+              padding: 16,
+            }}
+          >
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Gastos com Terceiros</p>
+            <p style={{ fontSize: 18, fontWeight: 600, color: '#ea580c', marginTop: 6, margin: '6px 0 0' }}>
               {formatCurrency(thirdPartyTotal)}
             </p>
-          </Card>
+          </div>
         )}
 
         {/* Quinzena filter pills */}
-        <div className="flex gap-2">
+        <div style={{ display: 'flex', gap: 8 }}>
           {filters.map((f) => (
             <button
               key={f.value}
               onClick={() => setQuinzenaFilter(f.value)}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                quinzenaFilter === f.value
-                  ? 'bg-primary text-primary-fg'
-                  : 'bg-bg2 text-text2'
-              }`}
+              style={{
+                borderRadius: 20,
+                padding: '8px 16px',
+                fontSize: 13,
+                fontWeight: 500,
+                border: 'none',
+                cursor: 'pointer',
+                background: quinzenaFilter === f.value ? '#2563eb' : '#f1f5f9',
+                color: quinzenaFilter === f.value ? '#fff' : '#64748b',
+                transition: 'all 0.2s',
+              }}
             >
               {f.label}
             </button>
@@ -124,42 +156,80 @@ export function DashboardPage() {
         </div>
 
         {/* Paid/Pending stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="p-4">
-            <p className="text-xs text-text2">Pago</p>
-            <p className="mt-1 text-lg font-semibold text-green">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              border: '1px solid #e2e8f0',
+              padding: 16,
+            }}
+          >
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Pago</p>
+            <p style={{ fontSize: 18, fontWeight: 600, color: '#16a34a', marginTop: 6, margin: '6px 0 0' }}>
               {formatCurrency(paidTotal)}
             </p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-xs text-text2">Pendente</p>
-            <p className="mt-1 text-lg font-semibold text-orange">
+          </div>
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 16,
+              border: '1px solid #e2e8f0',
+              padding: 16,
+            }}
+          >
+            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Pendente</p>
+            <p style={{ fontSize: 18, fontWeight: 600, color: '#ea580c', marginTop: 6, margin: '6px 0 0' }}>
               {formatCurrency(pendingTotal)}
             </p>
-          </Card>
+          </div>
         </div>
 
         {/* Category list */}
-        <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-text2">Por Categoria</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: '#64748b', margin: 0 }}>
+            Por Categoria
+          </h2>
           {Array.from(categoryGroups.entries()).map(([category, items]) => {
             const catTotal = items.reduce((sum, e) => sum + e.valor, 0)
             const isExpanded = expandedCategory === category
 
             return (
-              <Card key={category} className="overflow-hidden">
+              <div
+                key={category}
+                style={{
+                  background: '#fff',
+                  borderRadius: 16,
+                  border: '1px solid #e2e8f0',
+                  overflow: 'hidden',
+                }}
+              >
                 <button
                   onClick={() =>
                     setExpandedCategory(isExpanded ? null : category)
                   }
-                  className="flex w-full items-center justify-between p-4 text-left"
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: 16,
+                    textAlign: 'left',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
                 >
                   <div>
-                    <p className="text-sm font-medium text-text">{category}</p>
-                    <p className="text-xs text-text2">{items.length} item(ns)</p>
+                    <p style={{ fontSize: 14, fontWeight: 500, color: '#1e293b', margin: 0 }}>
+                      {category}
+                    </p>
+                    <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, margin: '2px 0 0' }}>
+                      {items.length} item(ns)
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-text">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
                       {formatCurrency(catTotal)}
                     </span>
                     <svg
@@ -167,10 +237,13 @@ export function DashboardPage() {
                       height="16"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="currentColor"
+                      stroke="#94a3b8"
                       strokeWidth="2"
-                      className={`text-text2 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                       aria-hidden="true"
+                      style={{
+                        transition: 'transform 0.2s',
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                      }}
                     >
                       <polyline points="6 9 12 15 18 9" />
                     </svg>
@@ -178,31 +251,39 @@ export function DashboardPage() {
                 </button>
 
                 {isExpanded && (
-                  <div className="border-t border-border">
+                  <div>
                     {items.map((expense) => (
                       <div
                         key={expense.id}
-                        className="flex items-center justify-between border-b border-border/50 px-4 py-3 last:border-b-0"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '14px 16px',
+                          borderTop: '1px solid #f1f5f9',
+                        }}
                       >
                         <div>
-                          <p className="text-sm text-text">{expense.descricao}</p>
-                          <p className="text-xs text-text2">
+                          <p style={{ fontSize: 14, color: '#334155', margin: 0 }}>
+                            {expense.descricao}
+                          </p>
+                          <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, margin: '2px 0 0' }}>
                             {expense.status === 'paid' ? '✓ Pago' : '○ Pendente'}
                           </p>
                         </div>
-                        <span className="text-sm font-medium text-text">
+                        <span style={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>
                           {formatCurrency(expense.valor)}
                         </span>
                       </div>
                     ))}
                   </div>
                 )}
-              </Card>
+              </div>
             )
           })}
 
           {categoryGroups.size === 0 && (
-            <p className="py-8 text-center text-sm text-text2">
+            <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
               Nenhuma despesa encontrada
             </p>
           )}
