@@ -2,21 +2,63 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Header } from '../../components/layout/Header'
 import { PageContainer } from '../../components/layout/PageContainer'
 import { MonthYearSelector } from '../../components/ui/MonthYearSelector'
+import { Modal } from '../../components/ui/Modal'
+import { useToast } from '../../components/ui/Toast'
 import { useExpensesStore } from '../../stores/expenses.store'
 import { useThirdPartyStore } from '../../stores/third-party.store'
-import { useProfile } from '../../hooks/useProfile'
+import { useProfile, clearProfileCache } from '../../hooks/useProfile'
+import { updateProfile } from '../../services/profile.service'
 import { filterByQuinzena, calculatePaidTotal, calculatePendingTotal } from '../../lib/quinzena'
-import { formatCurrency } from '../../lib/format'
+import { formatCurrency, parseCurrency, formatCurrencyInput } from '../../lib/format'
 import type { Quinzena, Expense, ExpenseCategory } from '../../types'
 
 type QuinzenaFilter = 'all' | Quinzena
 
 export function DashboardPage() {
-  const { profile, profileId } = useProfile()
+  const { user, profile, profileId } = useProfile()
   const { expenses, fetchExpenses } = useExpensesStore()
   const { expenses: thirdPartyExpenses, fetchExpenses: fetchThirdParty } = useThirdPartyStore()
   const [quinzenaFilter, setQuinzenaFilter] = useState<QuinzenaFilter>('all')
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+
+  // Edit income modal
+  const [showIncomeModal, setShowIncomeModal] = useState(false)
+  const [editSalario, setEditSalario] = useState('')
+  const [editSalarioNum, setEditSalarioNum] = useState(0)
+  const [savingIncome, setSavingIncome] = useState(false)
+  const { showToast } = useToast()
+
+  const openIncomeModal = useCallback(() => {
+    const sal = profile?.salario_liquido ?? 0
+    setEditSalarioNum(sal)
+    setEditSalario(formatCurrencyInput(sal))
+    setShowIncomeModal(true)
+  }, [profile])
+
+  const handleSalarioChange = (raw: string) => {
+    setEditSalario(raw)
+    setEditSalarioNum(parseCurrency(raw))
+  }
+
+  const handleSalarioBlur = () => {
+    setEditSalario(formatCurrencyInput(editSalarioNum))
+  }
+
+  const handleUpdateIncome = async () => {
+    if (!user || !profile) return
+    setSavingIncome(true)
+    try {
+      await updateProfile(user.id, { salario_liquido: editSalarioNum })
+      clearProfileCache()
+      showToast('Renda atualizada!', 'success')
+      setShowIncomeModal(false)
+      window.location.reload()
+    } catch {
+      showToast('Erro ao atualizar renda', 'error')
+    } finally {
+      setSavingIncome(false)
+    }
+  }
 
   const now = new Date()
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
@@ -102,6 +144,7 @@ export function DashboardPage() {
           {/* Edit icon top-right */}
           <button
             type="button"
+            onClick={openIncomeModal}
             style={{
               position: 'absolute',
               top: 16,
@@ -373,6 +416,54 @@ export function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Edit Income Modal */}
+      <Modal
+        isOpen={showIncomeModal}
+        onClose={() => setShowIncomeModal(false)}
+        title="Editar Renda"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#1e293b', marginBottom: 8 }}>
+              Salário Líquido
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e2e8f0', borderRadius: 14, padding: '14px 16px', background: '#fff' }}>
+              <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={editSalario}
+                onChange={(e) => handleSalarioChange(e.target.value)}
+                onBlur={handleSalarioBlur}
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: '#1e293b', background: 'transparent' }}
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleUpdateIncome}
+            disabled={savingIncome}
+            style={{
+              width: '100%',
+              padding: '16px 0',
+              borderRadius: 14,
+              border: 'none',
+              background: '#2563eb',
+              color: '#fff',
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: savingIncome ? 'not-allowed' : 'pointer',
+              opacity: savingIncome ? 0.6 : 1,
+              boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
+            }}
+          >
+            {savingIncome ? 'Salvando...' : 'Atualizar'}
+          </button>
+        </div>
+      </Modal>
     </PageContainer>
   )
 }
