@@ -35,6 +35,8 @@ export interface UserProfile {
   email: string
   nome: string
   salario_liquido: number
+  quinzena_1_valor: number
+  quinzena_2_valor: number
   dia_pagamento_1: number
   dia_pagamento_2: number
   created_at: string

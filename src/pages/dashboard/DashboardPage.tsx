@@ -23,32 +23,37 @@ export function DashboardPage() {
 
   // Edit income modal
   const [showIncomeModal, setShowIncomeModal] = useState(false)
-  const [editSalario, setEditSalario] = useState('')
-  const [editSalarioNum, setEditSalarioNum] = useState(0)
+  const [editQ1, setEditQ1] = useState('')
+  const [editQ1Num, setEditQ1Num] = useState(0)
+  const [editQ2, setEditQ2] = useState('')
+  const [editQ2Num, setEditQ2Num] = useState(0)
   const [savingIncome, setSavingIncome] = useState(false)
   const { showToast } = useToast()
 
   const openIncomeModal = useCallback(() => {
-    const sal = profile?.salario_liquido ?? 0
-    setEditSalarioNum(sal)
-    setEditSalario(formatCurrencyInput(sal))
+    const q1 = profile?.quinzena_1_valor ?? 0
+    const q2 = profile?.quinzena_2_valor ?? 0
+    setEditQ1Num(q1)
+    setEditQ1(formatCurrencyInput(q1))
+    setEditQ2Num(q2)
+    setEditQ2(formatCurrencyInput(q2))
     setShowIncomeModal(true)
   }, [profile])
-
-  const handleSalarioChange = (raw: string) => {
-    setEditSalario(raw)
-    setEditSalarioNum(parseCurrency(raw))
-  }
-
-  const handleSalarioBlur = () => {
-    setEditSalario(formatCurrencyInput(editSalarioNum))
-  }
 
   const handleUpdateIncome = async () => {
     if (!user || !profile) return
     setSavingIncome(true)
     try {
-      await updateProfile(user.id, { salario_liquido: editSalarioNum })
+      const totalSalario = editQ1Num + editQ2Num
+      await updateProfile(user.id, {
+        salario_liquido: totalSalario,
+      })
+      // Update quinzena values directly via supabase
+      const { supabase } = await import('../../lib/supabase')
+      await supabase
+        .from('user_profiles')
+        .update({ quinzena_1_valor: editQ1Num, quinzena_2_valor: editQ2Num, salario_liquido: totalSalario })
+        .eq('auth_user_id', user.id)
       clearProfileCache()
       showToast('Renda atualizada!', 'success')
       setShowIncomeModal(false)
@@ -424,9 +429,13 @@ export function DashboardPage() {
         title="Editar Renda"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+            O saldo é calculado pela soma das quinzenas.
+          </p>
+
           <div>
             <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#1e293b', marginBottom: 8 }}>
-              Salário Líquido
+              Dia 15
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e2e8f0', borderRadius: 14, padding: '14px 16px', background: '#fff' }}>
               <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
@@ -434,12 +443,36 @@ export function DashboardPage() {
                 type="text"
                 inputMode="decimal"
                 placeholder="0,00"
-                value={editSalario}
-                onChange={(e) => handleSalarioChange(e.target.value)}
-                onBlur={handleSalarioBlur}
+                value={editQ1}
+                onChange={(e) => { setEditQ1(e.target.value); setEditQ1Num(parseCurrency(e.target.value)) }}
+                onBlur={() => setEditQ1(formatCurrencyInput(editQ1Num))}
                 style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: '#1e293b', background: 'transparent' }}
               />
             </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#1e293b', marginBottom: 8 }}>
+              Último dia útil
+            </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e2e8f0', borderRadius: 14, padding: '14px 16px', background: '#fff' }}>
+              <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                placeholder="0,00"
+                value={editQ2}
+                onChange={(e) => { setEditQ2(e.target.value); setEditQ2Num(parseCurrency(e.target.value)) }}
+                onBlur={() => setEditQ2(formatCurrencyInput(editQ2Num))}
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: '#1e293b', background: 'transparent' }}
+              />
+            </div>
+          </div>
+
+          {/* Total preview */}
+          <div style={{ background: '#f1f5f9', borderRadius: 12, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 14, color: '#64748b' }}>Total mensal</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>{formatCurrency(editQ1Num + editQ2Num)}</span>
           </div>
 
           <button
