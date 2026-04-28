@@ -55,6 +55,8 @@ export function TransactionsPage() {
   const [editQuinzena, setEditQuinzena] = useState('1')
   const [editDataVencimento, setEditDataVencimento] = useState('')
   const [editRecorrente, setEditRecorrente] = useState(false)
+  const [editDiaVencimento, setEditDiaVencimento] = useState('10')
+  const [editDataFinal, setEditDataFinal] = useState('')
 
   // Add form state
   const [descricao, setDescricao] = useState('')
@@ -65,6 +67,8 @@ export function TransactionsPage() {
     new Date().toISOString().split('T')[0],
   )
   const [recorrente, setRecorrente] = useState(false)
+  const [diaVencimento, setDiaVencimento] = useState('10')
+  const [dataFinal, setDataFinal] = useState('')
 
   useEffect(() => {
     if (profileId) {
@@ -80,6 +84,8 @@ export function TransactionsPage() {
     setEditQuinzena(expense.quinzena)
     setEditDataVencimento(expense.data_vencimento)
     setEditRecorrente(expense.recorrente)
+    setEditDiaVencimento(String(new Date(expense.data_vencimento).getDate() || 10))
+    setEditDataFinal('')
     setShowEditModal(true)
   }, [])
 
@@ -129,18 +135,24 @@ export function TransactionsPage() {
     setQuinzena('1')
     setDataVencimento(new Date().toISOString().split('T')[0])
     setRecorrente(false)
+    setDiaVencimento('10')
+    setDataFinal('')
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profileId) return
 
+    const finalDate = recorrente
+      ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(diaVencimento).padStart(2, '0')}`
+      : dataVencimento
+
     const parsed = expenseSchema.safeParse({
       descricao,
       valor: parseFloat(valor) || 0,
       categoria,
       quinzena,
-      data_vencimento: dataVencimento,
+      data_vencimento: finalDate,
       status: 'pending' as const,
       recorrente,
     })
@@ -368,17 +380,41 @@ export function TransactionsPage() {
               {quinzenaOptions.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
             </select>
           </div>
-          <div>
-            <label style={labelStyle}>Data de vencimento</label>
-            <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              <input type="date" value={editDataVencimento} onChange={(e) => setEditDataVencimento(e.target.value)} style={inputStyle} />
-            </div>
-          </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#334155', cursor: 'pointer' }}>
             <input type="checkbox" checked={editRecorrente} onChange={(e) => setEditRecorrente(e.target.checked)} style={{ width: 18, height: 18, accentColor: '#2563eb' }} />
             Despesa fixa (recorrente)
           </label>
+          {!editRecorrente ? (
+            <div>
+              <label style={labelStyle}>Data de vencimento</label>
+              <div style={inputWrapStyle}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <input type="date" value={editDataVencimento} onChange={(e) => setEditDataVencimento(e.target.value)} style={inputStyle} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label style={labelStyle}>Dia de vencimento</label>
+                <div style={inputWrapStyle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <select value={editDiaVencimento} onChange={(e) => setEditDiaVencimento(e.target.value)} style={{ ...inputStyle, appearance: 'none' as const }}>
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={String(d)}>Dia {d}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Data final (quando parar)</label>
+                <div style={inputWrapStyle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <input type="date" value={editDataFinal} onChange={(e) => setEditDataFinal(e.target.value)} style={inputStyle} />
+                </div>
+                <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Deixe vazio para sem data final</p>
+              </div>
+            </>
+          )}
           <button type="submit" disabled={submitting} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1, boxShadow: '0 4px 14px rgba(37,99,235,0.3)' }}>
             {submitting ? 'Atualizando...' : 'Atualizar'}
           </button>
@@ -470,19 +506,6 @@ export function TransactionsPage() {
             </select>
           </div>
 
-          <div>
-            <label style={labelStyle}>Data de vencimento</label>
-            <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              <input
-                type="date"
-                value={dataVencimento}
-                onChange={(e) => setDataVencimento(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
           <label
             style={{
               display: 'flex',
@@ -501,6 +524,53 @@ export function TransactionsPage() {
             />
             Despesa fixa (recorrente)
           </label>
+
+          {!recorrente ? (
+            <div>
+              <label style={labelStyle}>Data de vencimento</label>
+              <div style={inputWrapStyle}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <input
+                  type="date"
+                  value={dataVencimento}
+                  onChange={(e) => setDataVencimento(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div>
+                <label style={labelStyle}>Dia de vencimento</label>
+                <div style={inputWrapStyle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <select
+                    value={diaVencimento}
+                    onChange={(e) => setDiaVencimento(e.target.value)}
+                    style={{ ...inputStyle, appearance: 'none' as const }}
+                  >
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+                      <option key={d} value={String(d)}>Dia {d}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={labelStyle}>Data final (quando parar)</label>
+                <div style={inputWrapStyle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <input
+                    type="date"
+                    value={dataFinal}
+                    onChange={(e) => setDataFinal(e.target.value)}
+                    style={inputStyle}
+                    placeholder="Opcional"
+                  />
+                </div>
+                <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Deixe vazio para sem data final</p>
+              </div>
+            </>
+          )}
 
           <button
             type="submit"
