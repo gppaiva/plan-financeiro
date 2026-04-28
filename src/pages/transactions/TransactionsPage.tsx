@@ -36,10 +36,12 @@ interface ContextMenuState {
 
 export function TransactionsPage() {
   const { profileId } = useProfile()
-  const { expenses, loading, fetchExpenses, addExpense, toggleExpenseStatus, removeExpense } =
+  const { expenses, loading, fetchExpenses, addExpense, updateExpense, toggleExpenseStatus, removeExpense } =
     useExpensesStore()
   const { showToast } = useToast()
   const [showModal, setShowModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
@@ -61,6 +63,14 @@ export function TransactionsPage() {
     y: 0,
     expenseId: null,
   })
+
+  // Edit form state
+  const [editDescricao, setEditDescricao] = useState('')
+  const [editValor, setEditValor] = useState('')
+  const [editCategoria, setEditCategoria] = useState<string>(EXPENSE_CATEGORIES[0])
+  const [editQuinzena, setEditQuinzena] = useState('1')
+  const [editDataVencimento, setEditDataVencimento] = useState('')
+  const [editRecorrente, setEditRecorrente] = useState(false)
 
   // Form state
   const [descricao, setDescricao] = useState('')
@@ -123,9 +133,42 @@ export function TransactionsPage() {
   )
 
   const handleEdit = useCallback(() => {
+    const expense = expenses.find((e) => e.id === contextMenu.expenseId)
+    if (!expense) return
+    setEditingExpenseId(expense.id)
+    setEditDescricao(expense.descricao)
+    setEditValor(String(expense.valor))
+    setEditCategoria(expense.categoria)
+    setEditQuinzena(expense.quinzena)
+    setEditDataVencimento(expense.data_vencimento)
+    setEditRecorrente(expense.recorrente)
     setContextMenu((prev) => ({ ...prev, visible: false }))
-    showToast('Em breve', 'success')
-  }, [showToast])
+    setShowEditModal(true)
+  }, [expenses, contextMenu.expenseId])
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingExpenseId) return
+
+    setSubmitting(true)
+    try {
+      await updateExpense(editingExpenseId, {
+        descricao: editDescricao,
+        valor: parseFloat(editValor) || 0,
+        categoria: editCategoria as typeof EXPENSE_CATEGORIES[number],
+        quinzena: editQuinzena as '1' | '2',
+        data_vencimento: editDataVencimento,
+        recorrente: editRecorrente,
+      })
+      showToast('Despesa atualizada!', 'success')
+      setShowEditModal(false)
+      setEditingExpenseId(null)
+    } catch {
+      showToast('Erro ao atualizar despesa', 'error')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const handleDeleteRequest = useCallback(() => {
     setConfirmDeleteId(contextMenu.expenseId)
@@ -500,6 +543,56 @@ export function TransactionsPage() {
           </div>
         </div>
       )}
+
+      {/* Edit Expense Modal */}
+      <Modal
+        isOpen={showEditModal}
+        onClose={() => { setShowEditModal(false); setEditingExpenseId(null) }}
+        title="Editar Despesa"
+      >
+        <form onSubmit={handleEditSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div>
+            <label style={labelStyle}>Descrição</label>
+            <div style={inputWrapStyle}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <input type="text" placeholder="Ex: Aluguel" value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Valor</label>
+            <div style={inputWrapStyle}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <input type="number" placeholder="0,00" value={editValor} onChange={(e) => setEditValor(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>Categoria</label>
+            <select value={editCategoria} onChange={(e) => setEditCategoria(e.target.value)} style={selectStyle}>
+              {EXPENSE_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Quinzena</label>
+            <select value={editQuinzena} onChange={(e) => setEditQuinzena(e.target.value)} style={selectStyle}>
+              {quinzenaOptions.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
+            </select>
+          </div>
+          <div>
+            <label style={labelStyle}>Data de vencimento</label>
+            <div style={inputWrapStyle}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <input type="date" value={editDataVencimento} onChange={(e) => setEditDataVencimento(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#334155', cursor: 'pointer' }}>
+            <input type="checkbox" checked={editRecorrente} onChange={(e) => setEditRecorrente(e.target.checked)} style={{ width: 18, height: 18, accentColor: '#2563eb' }} />
+            Despesa fixa (recorrente)
+          </label>
+          <button type="submit" disabled={submitting} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1, boxShadow: '0 4px 14px rgba(37,99,235,0.3)' }}>
+            {submitting ? 'Atualizando...' : 'Atualizar'}
+          </button>
+        </form>
+      </Modal>
 
       {/* Add Expense Modal */}
       <Modal

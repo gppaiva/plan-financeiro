@@ -4,6 +4,7 @@ import type { ExpenseFormData } from '../schemas/expense.schema'
 import {
   listExpenses,
   createExpense,
+  updateExpense as updateExpenseService,
   toggleExpenseStatus as toggleExpenseStatusService,
   deleteExpense,
 } from '../services/expenses.service'
@@ -13,6 +14,7 @@ interface ExpensesState {
   loading: boolean
   fetchExpenses: (userId: string, filters?: ExpenseFilters) => Promise<void>
   addExpense: (userId: string, data: ExpenseFormData) => Promise<void>
+  updateExpense: (id: string, data: Partial<ExpenseFormData>) => Promise<void>
   toggleExpenseStatus: (id: string) => Promise<void>
   removeExpense: (id: string) => Promise<void>
 }
@@ -34,6 +36,13 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
   addExpense: async (userId, data) => {
     const created = await createExpense(userId, data)
     set((state) => ({ expenses: [...state.expenses, created] }))
+  },
+
+  updateExpense: async (id, data) => {
+    const updated = await updateExpenseService(id, data)
+    set((state) => ({
+      expenses: state.expenses.map((e) => (e.id === id ? updated : e)),
+    }))
   },
 
   toggleExpenseStatus: async (id) => {
