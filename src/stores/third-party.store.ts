@@ -4,6 +4,7 @@ import type { ThirdPartyExpenseFormData } from '../schemas/third-party.schema'
 import {
   listThirdPartyExpenses,
   createThirdPartyExpense,
+  updateThirdPartyExpense,
   toggleThirdPartyStatus as toggleThirdPartyStatusService,
   deleteThirdPartyExpense,
 } from '../services/third-party.service'
@@ -13,6 +14,7 @@ interface ThirdPartyState {
   loading: boolean
   fetchExpenses: (userId: string) => Promise<void>
   addExpense: (userId: string, data: ThirdPartyExpenseFormData) => Promise<void>
+  updateExpense: (id: string, data: Partial<ThirdPartyExpenseFormData>) => Promise<void>
   toggleStatus: (id: string) => Promise<void>
   removeExpense: (id: string) => Promise<void>
 }
@@ -34,6 +36,13 @@ export const useThirdPartyStore = create<ThirdPartyState>((set, get) => ({
   addExpense: async (userId, data) => {
     const created = await createThirdPartyExpense(userId, data)
     set((state) => ({ expenses: [...state.expenses, created] }))
+  },
+
+  updateExpense: async (id, data) => {
+    const updated = await updateThirdPartyExpense(id, data)
+    set((state) => ({
+      expenses: state.expenses.map((e) => (e.id === id ? updated : e)),
+    }))
   },
 
   toggleStatus: async (id) => {
