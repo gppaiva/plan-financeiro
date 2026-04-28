@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { Header } from '../../components/layout/Header'
 import { PageContainer } from '../../components/layout/PageContainer'
 import { MonthYearSelector } from '../../components/ui/MonthYearSelector'
@@ -9,6 +9,7 @@ import { useProfile } from '../../hooks/useProfile'
 import { expenseSchema } from '../../schemas/expense.schema'
 import { formatCurrency, formatDate } from '../../lib/format'
 import { EXPENSE_CATEGORIES } from '../../types'
+import type { Expense } from '../../types'
 
 const categoryEmojis: Record<string, string> = {
   'Alimentação': '🍔',
@@ -27,13 +28,6 @@ const quinzenaOptions = [
   { value: '2', label: 'Último dia útil' },
 ]
 
-interface ContextMenuState {
-  visible: boolean
-  x: number
-  y: number
-  expenseId: string | null
-}
-
 export function TransactionsPage() {
   const { profileId } = useProfile()
   const { expenses, loading, fetchExpenses, addExpense, updateExpense, toggleExpenseStatus, removeExpense } =
@@ -43,7 +37,6 @@ export function TransactionsPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   // Month/Year selector state
   const now = new Date()
@@ -55,15 +48,6 @@ export function TransactionsPage() {
     setSelectedYear(year)
   }, [])
 
-  // Long press state
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const [contextMenu, setContextMenu] = useState<ContextMenuState>({
-    visible: false,
-    x: 0,
-    y: 0,
-    expenseId: null,
-  })
-
   // Edit form state
   const [editDescricao, setEditDescricao] = useState('')
   const [editValor, setEditValor] = useState('')
@@ -72,7 +56,7 @@ export function TransactionsPage() {
   const [editDataVencimento, setEditDataVencimento] = useState('')
   const [editRecorrente, setEditRecorrente] = useState(false)
 
-  // Form state
+  // Add form state
   const [descricao, setDescricao] = useState('')
   const [valor, setValor] = useState('')
   const [categoria, setCategoria] = useState<string>(EXPENSE_CATEGORIES[0])
@@ -88,53 +72,7 @@ export function TransactionsPage() {
     }
   }, [profileId, selectedMonth, selectedYear, fetchExpenses])
 
-  // Close context menu on click outside
-  useEffect(() => {
-    if (!contextMenu.visible) return
-    const handleClick = () => setContextMenu((prev) => ({ ...prev, visible: false }))
-    document.addEventListener('click', handleClick)
-    document.addEventListener('touchstart', handleClick)
-    return () => {
-      document.removeEventListener('click', handleClick)
-      document.removeEventListener('touchstart', handleClick)
-    }
-  }, [contextMenu.visible])
-
-  const clearLongPress = useCallback(() => {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current)
-      longPressTimer.current = null
-    }
-  }, [])
-
-  const startLongPress = useCallback(
-    (expenseId: string, clientX: number, clientY: number) => {
-      clearLongPress()
-      longPressTimer.current = setTimeout(() => {
-        setContextMenu({ visible: true, x: clientX, y: clientY, expenseId })
-      }, 500)
-    },
-    [clearLongPress],
-  )
-
-  const handleTouchStart = useCallback(
-    (expenseId: string, e: React.TouchEvent) => {
-      const touch = e.touches[0]
-      startLongPress(expenseId, touch.clientX, touch.clientY)
-    },
-    [startLongPress],
-  )
-
-  const handleMouseDown = useCallback(
-    (expenseId: string, e: React.MouseEvent) => {
-      startLongPress(expenseId, e.clientX, e.clientY)
-    },
-    [startLongPress],
-  )
-
-  const handleEdit = useCallback(() => {
-    const expense = expenses.find((e) => e.id === contextMenu.expenseId)
-    if (!expense) return
+  const openEditModal = useCallback((expense: Expense) => {
     setEditingExpenseId(expense.id)
     setEditDescricao(expense.descricao)
     setEditValor(String(expense.valor))
@@ -142,9 +80,8 @@ export function TransactionsPage() {
     setEditQuinzena(expense.quinzena)
     setEditDataVencimento(expense.data_vencimento)
     setEditRecorrente(expense.recorrente)
-    setContextMenu((prev) => ({ ...prev, visible: false }))
     setShowEditModal(true)
-  }, [expenses, contextMenu.expenseId])
+  }, [])
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -170,22 +107,20 @@ export function TransactionsPage() {
     }
   }
 
-  const handleDeleteRequest = useCallback(() => {
-    setConfirmDeleteId(contextMenu.expenseId)
-    setContextMenu((prev) => ({ ...prev, visible: false }))
-  }, [contextMenu.expenseId])
+  const handleDeleteFromEdit = async () => {
+    if (!editingExpenseId) return
+    const confirmed = window.confirm('Tem certeza que deseja excluir esta despesa?')
+    if (!confirmed) return
 
-  const handleConfirmDelete = useCallback(async () => {
-    if (!confirmDeleteId) return
     try {
-      await removeExpense(confirmDeleteId)
+      await removeExpense(editingExpenseId)
       showToast('Despesa excluída', 'success')
+      setShowEditModal(false)
+      setEditingExpenseId(null)
     } catch {
       showToast('Erro ao excluir despesa', 'error')
-    } finally {
-      setConfirmDeleteId(null)
     }
-  }, [confirmDeleteId, removeExpense, showToast])
+  }
 
   const resetForm = () => {
     setDescricao('')
@@ -326,12 +261,7 @@ export function TransactionsPage() {
             {expenses.map((expense) => (
               <div
                 key={expense.id}
-                onTouchStart={(e) => handleTouchStart(expense.id, e)}
-                onTouchEnd={clearLongPress}
-                onTouchMove={clearLongPress}
-                onMouseDown={(e) => handleMouseDown(expense.id, e)}
-                onMouseUp={clearLongPress}
-                onMouseLeave={clearLongPress}
+                onClick={() => openEditModal(expense)}
                 style={{
                   background: '#fff',
                   borderRadius: 16,
@@ -340,8 +270,7 @@ export function TransactionsPage() {
                   display: 'flex',
                   alignItems: 'flex-start',
                   justifyContent: 'space-between',
-                  userSelect: 'none',
-                  WebkitUserSelect: 'none',
+                  cursor: 'pointer',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flex: 1 }}>
@@ -381,7 +310,10 @@ export function TransactionsPage() {
                     {formatCurrency(expense.valor)}
                   </p>
                   <button
-                    onClick={() => handleToggle(expense.id)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleToggle(expense.id)
+                    }}
                     style={{
                       marginTop: 6,
                       borderRadius: 20,
@@ -402,147 +334,6 @@ export function TransactionsPage() {
           </div>
         )}
       </div>
-
-      {/* Context Menu (long press) */}
-      {contextMenu.visible && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            position: 'fixed',
-            top: contextMenu.y,
-            left: contextMenu.x,
-            transform: 'translate(-50%, -100%)',
-            background: '#fff',
-            borderRadius: 12,
-            boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-            padding: 8,
-            zIndex: 100,
-            minWidth: 160,
-          }}
-        >
-          <button
-            onClick={handleEdit}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '12px 16px',
-              fontSize: 14,
-              color: '#1e293b',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              width: '100%',
-              borderRadius: 8,
-              textAlign: 'left',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
-            Editar
-          </button>
-          <button
-            onClick={handleDeleteRequest}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              padding: '12px 16px',
-              fontSize: 14,
-              color: '#dc2626',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              width: '100%',
-              borderRadius: 8,
-              textAlign: 'left',
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
-            Excluir
-          </button>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {confirmDeleteId && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 200,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.4)',
-            }}
-            onClick={() => setConfirmDeleteId(null)}
-          />
-          <div
-            style={{
-              position: 'relative',
-              background: '#fff',
-              borderRadius: 20,
-              padding: 24,
-              width: '85%',
-              maxWidth: 340,
-              boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
-            }}
-          >
-            <p style={{ fontSize: 16, fontWeight: 600, color: '#1e293b', margin: '0 0 8px' }}>
-              Excluir despesa
-            </p>
-            <p style={{ fontSize: 14, color: '#64748b', margin: '0 0 20px' }}>
-              Tem certeza que deseja excluir esta despesa?
-            </p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setConfirmDeleteId(null)}
-                style={{
-                  flex: 1,
-                  padding: '12px 0',
-                  borderRadius: 12,
-                  border: '1px solid #e2e8f0',
-                  background: '#fff',
-                  color: '#64748b',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                style={{
-                  flex: 1,
-                  padding: '12px 0',
-                  borderRadius: 12,
-                  border: 'none',
-                  background: '#dc2626',
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                }}
-              >
-                Excluir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Edit Expense Modal */}
       <Modal
@@ -590,6 +381,30 @@ export function TransactionsPage() {
           </label>
           <button type="submit" disabled={submitting} style={{ width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1, boxShadow: '0 4px 14px rgba(37,99,235,0.3)' }}>
             {submitting ? 'Atualizando...' : 'Atualizar'}
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteFromEdit}
+            style={{
+              width: '100%',
+              padding: '12px 0',
+              border: 'none',
+              background: 'none',
+              color: '#dc2626',
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6" />
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            </svg>
+            Excluir despesa
           </button>
         </form>
       </Modal>
