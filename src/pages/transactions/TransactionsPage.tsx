@@ -95,7 +95,7 @@ export function TransactionsPage() {
     setEditDataVencimento(expense.data_vencimento)
     setEditRecorrente(expense.recorrente)
     setEditDiaVencimento(String(new Date(expense.data_vencimento).getDate() || 10))
-    setEditDataFinal('')
+    setEditDataFinal(expense.data_final || '')
     setShowEditModal(true)
   }, [])
 
