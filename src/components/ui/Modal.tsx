@@ -59,18 +59,22 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
           position: 'relative',
           width: '100%',
           maxWidth: 430,
+          maxHeight: '85vh',
           background: '#fff',
           borderRadius: '24px 24px 0 0',
-          padding: '24px 24px 32px',
           boxShadow: '0 -4px 30px rgba(0,0,0,0.08)',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
+        {/* Fixed header with title and close */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: 20,
+            padding: '20px 24px 16px',
+            flexShrink: 0,
           }}
         >
           <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
@@ -89,6 +93,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
               justifyContent: 'center',
               cursor: 'pointer',
               color: '#64748b',
+              flexShrink: 0,
             }}
             aria-label="Fechar"
           >
@@ -102,7 +107,10 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             </svg>
           </button>
         </div>
-        {children}
+        {/* Scrollable content */}
+        <div style={{ overflowY: 'auto', padding: '0 24px 32px', WebkitOverflowScrolling: 'touch' }}>
+          {children}
+        </div>
       </div>
     </div>
   )
