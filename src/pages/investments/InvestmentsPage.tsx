@@ -10,7 +10,7 @@ import type { InvestmentAccount } from '../../types'
 
 export function InvestmentsPage() {
   const { profileId } = useProfile()
-  const { accounts, loading, fetchAccounts, createAccount, updateAccount, deleteAccount } =
+  const { accounts, loading, fetchAccounts, updateAccount, deleteAccount } =
     useInvestmentsStore()
   const { showToast } = useToast()
 
