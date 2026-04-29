@@ -66,7 +66,17 @@ export async function listExpenses(
     return expense.data_final >= startDate // end date is on or after this month
   })
 
-  return [...(normalData ?? []) as Expense[], ...filteredRecurring as Expense[]]
+  // Get monthly payment status for recurring expenses
+  const recurringIds = filteredRecurring.map((e: Expense) => e.id)
+  const payments = await getMonthlyPayments(recurringIds, filters.month, filters.year)
+
+  // Apply monthly status to recurring expenses
+  const recurringWithStatus = filteredRecurring.map((expense: Expense) => ({
+    ...expense,
+    status: payments[expense.id] || 'pending' as ExpenseStatus,
+  }))
+
+  return [...(normalData ?? []) as Expense[], ...recurringWithStatus as Expense[]]
 }
 
 /**
@@ -130,11 +140,51 @@ export async function deleteExpense(id: string): Promise<void> {
 
 /**
  * Toggles expense status between 'paid' and 'pending'.
+ * For recurring expenses, uses the expense_payments table to track per-month status.
+ * For non-recurring, updates the expense directly.
  */
 export async function toggleExpenseStatus(
   id: string,
   currentStatus: ExpenseStatus,
+  month?: number,
+  year?: number,
 ): Promise<Expense> {
+  // Check if expense is recurring
+  const { data: expense } = await supabase
+    .from(TABLE)
+    .select('recorrente')
+    .eq('id', id)
+    .single()
+
+  if (expense?.recorrente && month && year) {
+    // For recurring: toggle in expense_payments table
+    if (currentStatus === 'pending') {
+      // Mark as paid for this month
+      await supabase
+        .from('expense_payments')
+        .upsert({ expense_id: id, mes: month, ano: year, status: 'paid' })
+    } else {
+      // Remove payment record for this month
+      await supabase
+        .from('expense_payments')
+        .delete()
+        .eq('expense_id', id)
+        .eq('mes', month)
+        .eq('ano', year)
+    }
+
+    // Return the expense with toggled status (for UI update)
+    const { data: updated } = await supabase
+      .from(TABLE)
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    const newStatus: ExpenseStatus = currentStatus === 'paid' ? 'pending' : 'paid'
+    return { ...(updated as Expense), status: newStatus }
+  }
+
+  // Non-recurring: update directly
   const newStatus: ExpenseStatus = currentStatus === 'paid' ? 'pending' : 'paid'
 
   const { data: updated, error } = await supabase
@@ -149,4 +199,28 @@ export async function toggleExpenseStatus(
   }
 
   return updated as Expense
+}
+
+/**
+ * Gets payment status for recurring expenses in a specific month.
+ */
+export async function getMonthlyPayments(
+  expenseIds: string[],
+  month: number,
+  year: number,
+): Promise<Record<string, ExpenseStatus>> {
+  if (expenseIds.length === 0) return {}
+
+  const { data } = await supabase
+    .from('expense_payments')
+    .select('expense_id, status')
+    .in('expense_id', expenseIds)
+    .eq('mes', month)
+    .eq('ano', year)
+
+  const result: Record<string, ExpenseStatus> = {}
+  for (const payment of (data ?? [])) {
+    result[payment.expense_id] = payment.status as ExpenseStatus
+  }
+  return result
 }

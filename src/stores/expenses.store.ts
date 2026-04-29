@@ -15,7 +15,7 @@ interface ExpensesState {
   fetchExpenses: (userId: string, filters?: ExpenseFilters) => Promise<void>
   addExpense: (userId: string, data: ExpenseFormData) => Promise<void>
   updateExpense: (id: string, data: Partial<ExpenseFormData>) => Promise<void>
-  toggleExpenseStatus: (id: string) => Promise<void>
+  toggleExpenseStatus: (id: string, month?: number, year?: number) => Promise<void>
   removeExpense: (id: string) => Promise<void>
 }
 
@@ -45,7 +45,7 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
     }))
   },
 
-  toggleExpenseStatus: async (id) => {
+  toggleExpenseStatus: async (id, month, year) => {
     const { expenses } = get()
     const expense = expenses.find((e) => e.id === id)
     if (!expense) return
@@ -59,12 +59,11 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
     set({ expenses: updatedExpenses })
 
     try {
-      const updated = await toggleExpenseStatusService(id, expense.status)
+      const updated = await toggleExpenseStatusService(id, expense.status, month, year)
       set((state) => ({
         expenses: state.expenses.map((e) => (e.id === id ? updated : e)),
       }))
     } catch (error) {
-      // Rollback on error
       set({ expenses })
       throw error
     }

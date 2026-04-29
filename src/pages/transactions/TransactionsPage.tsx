@@ -188,7 +188,7 @@ export function TransactionsPage() {
 
   const handleToggle = async (id: string) => {
     try {
-      await toggleExpenseStatus(id)
+      await toggleExpenseStatus(id, selectedMonth, selectedYear)
     } catch {
       showToast('Erro ao atualizar status', 'error')
     }
