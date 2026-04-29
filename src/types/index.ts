@@ -37,6 +37,7 @@ export interface UserProfile {
   salario_liquido: number
   quinzena_1_valor: number
   quinzena_2_valor: number
+  ciclo_tipo: string
   dia_pagamento_1: number
   dia_pagamento_2: number
   created_at: string

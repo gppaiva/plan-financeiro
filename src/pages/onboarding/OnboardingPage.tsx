@@ -49,6 +49,17 @@ export function OnboardingPage() {
         dia_pagamento_2: q2 > 0 ? 30 : 30,
       })
 
+      // Save ciclo_tipo and quinzena values
+      const { supabase } = await import('../../lib/supabase')
+      await supabase
+        .from('user_profiles')
+        .update({
+          ciclo_tipo: step1.cicloTipo || '15_ultimo',
+          quinzena_1_valor: q1,
+          quinzena_2_valor: q2,
+        })
+        .eq('auth_user_id', user.id)
+
       showToast('Perfil criado com sucesso!', 'success')
       navigate('/dashboard')
     } catch {

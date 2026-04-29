@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Header } from '../../components/layout/Header'
 import { PageContainer } from '../../components/layout/PageContainer'
 import { MonthYearSelector } from '../../components/ui/MonthYearSelector'
@@ -23,13 +23,8 @@ const categoryEmojis: Record<string, string> = {
   'Outros': '📦',
 }
 
-const quinzenaOptions = [
-  { value: '1', label: 'Dia 15' },
-  { value: '2', label: 'Último dia útil' },
-]
-
 export function TransactionsPage() {
-  const { profileId } = useProfile()
+  const { profile, profileId } = useProfile()
   const { expenses, loading, fetchExpenses, addExpense, updateExpense, toggleExpenseStatus, removeExpense } =
     useExpensesStore()
   const { showToast } = useToast()
@@ -37,6 +32,21 @@ export function TransactionsPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Dynamic quinzena options based on user's ciclo_tipo
+  const quinzenaOptions = useMemo(() => {
+    const ciclo = profile?.ciclo_tipo || '15_ultimo'
+    if (ciclo === '5_20') {
+      return [
+        { value: '1', label: '5º dia útil' },
+        { value: '2', label: 'Dia 20' },
+      ]
+    }
+    return [
+      { value: '1', label: 'Dia 15' },
+      { value: '2', label: 'Último dia útil' },
+    ]
+  }, [profile])
 
   // Month/Year selector state
   const now = new Date()

@@ -1,0 +1,2 @@
+ALTER TABLE user_profiles
+  ADD COLUMN IF NOT EXISTS ciclo_tipo TEXT NOT NULL DEFAULT '15_ultimo';

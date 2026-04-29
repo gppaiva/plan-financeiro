@@ -115,10 +115,14 @@ export function DashboardPage() {
     return groups
   }, [filteredExpenses])
 
+  const ciclo = profile?.ciclo_tipo || '15_ultimo'
+  const q1Label = ciclo === '5_20' ? '5º dia útil' : 'Dia 15'
+  const q2Label = ciclo === '5_20' ? 'Dia 20' : 'Último dia útil'
+
   const filters: { label: string; value: QuinzenaFilter }[] = [
     { label: 'Mês Completo', value: 'all' },
-    { label: 'Dia 15', value: '1' },
-    { label: 'Último dia útil', value: '2' },
+    { label: q1Label, value: '1' },
+    { label: q2Label, value: '2' },
   ]
 
   const miniCardStyle: React.CSSProperties = {
