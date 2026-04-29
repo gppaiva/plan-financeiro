@@ -1,39 +1,36 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Header } from '../../components/layout/Header'
 import { PageContainer } from '../../components/layout/PageContainer'
 import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { useInvestmentsStore } from '../../stores/investments.store'
 import { useProfile } from '../../hooks/useProfile'
-import { investmentAccountSchema, investmentTransactionSchema } from '../../schemas/investment.schema'
 import { formatCurrency } from '../../lib/format'
+import type { InvestmentAccount } from '../../types'
 
 export function InvestmentsPage() {
   const { profileId } = useProfile()
-  const { accounts, loading, fetchAccounts, createAccount, addDeposit, addWithdrawal } =
+  const { accounts, loading, fetchAccounts, createAccount, updateAccount, deleteAccount } =
     useInvestmentsStore()
   const { showToast } = useToast()
 
-  const [showAccountModal, setShowAccountModal] = useState(false)
-  const [showTxModal, setShowTxModal] = useState(false)
-  const [txType, setTxType] = useState<'aporte' | 'resgate'>('aporte')
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  // Account form
-  const [accountNome, setAccountNome] = useState('')
-  const [accountTipo, setAccountTipo] = useState('')
-  const [accountCor, setAccountCor] = useState('#2563eb')
+  // Add form
+  const [nome, setNome] = useState('')
+  const [tipo, setTipo] = useState('')
+  const [valor, setValor] = useState('')
 
-  // Transaction form
-  const [txValor, setTxValor] = useState('')
-  const [txDescricao, setTxDescricao] = useState('')
-  const [txData, setTxData] = useState(new Date().toISOString().split('T')[0])
+  // Edit form
+  const [editNome, setEditNome] = useState('')
+  const [editTipo, setEditTipo] = useState('')
+  const [editValor, setEditValor] = useState('')
 
   useEffect(() => {
-    if (profileId) {
-      fetchAccounts(profileId)
-    }
+    if (profileId) { fetchAccounts(profileId) }
   }, [profileId, fetchAccounts])
 
   const totalInvested = useMemo(
@@ -41,390 +38,145 @@ export function InvestmentsPage() {
     [accounts],
   )
 
-  const resetAccountForm = () => {
-    setAccountNome('')
-    setAccountTipo('')
-    setAccountCor('#2563eb')
-  }
+  const openEditModal = useCallback((account: InvestmentAccount) => {
+    setEditingId(account.id)
+    setEditNome(account.nome)
+    setEditTipo(account.tipo)
+    setEditValor(String(account.saldo_atual))
+    setShowEditModal(true)
+  }, [])
 
-  const resetTxForm = () => {
-    setTxValor('')
-    setTxDescricao('')
-    setTxData(new Date().toISOString().split('T')[0])
-  }
-
-  const handleCreateAccount = async (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!profileId) return
-
-    const parsed = investmentAccountSchema.safeParse({
-      nome: accountNome,
-      tipo: accountTipo,
-      cor: accountCor || undefined,
-    })
-
-    if (!parsed.success) {
-      showToast(parsed.error.issues[0].message, 'error')
-      return
-    }
+    if (!nome.trim()) { showToast('Instituição é obrigatória', 'error'); return }
+    if (!tipo.trim()) { showToast('Tipo é obrigatório', 'error'); return }
+    const valorNum = parseFloat(valor) || 0
+    if (valorNum <= 0) { showToast('Valor deve ser positivo', 'error'); return }
 
     setSubmitting(true)
     try {
-      await createAccount(profileId, parsed.data)
-      showToast('Conta criada!', 'success')
-      setShowAccountModal(false)
-      resetAccountForm()
-    } catch {
-      showToast('Erro ao criar conta', 'error')
-    } finally {
-      setSubmitting(false)
-    }
+      // Create account with initial balance
+      const { supabase } = await import('../../lib/supabase')
+      const { data: created, error } = await supabase
+        .from('investment_accounts')
+        .insert({ user_id: profileId, nome, tipo, saldo_atual: valorNum })
+        .select()
+        .single()
+      if (error) throw new Error(error.message)
+      // Update store manually
+      useInvestmentsStore.setState((state) => ({
+        accounts: [...state.accounts, created as InvestmentAccount],
+      }))
+      showToast('Investimento adicionado!', 'success')
+      setShowAddModal(false)
+      setNome(''); setTipo(''); setValor('')
+    } catch { showToast('Erro ao adicionar', 'error') }
+    finally { setSubmitting(false) }
   }
 
-  const openTxModal = (accountId: string, type: 'aporte' | 'resgate') => {
-    setSelectedAccountId(accountId)
-    setTxType(type)
-    resetTxForm()
-    setShowTxModal(true)
-  }
-
-  const handleTransaction = async (e: React.FormEvent) => {
+  const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedAccountId) return
-
-    const parsed = investmentTransactionSchema.safeParse({
-      conta_id: selectedAccountId,
-      descricao: txDescricao || undefined,
-      valor: parseFloat(txValor) || 0,
-      tipo: txType,
-      data: txData,
-    })
-
-    if (!parsed.success) {
-      showToast(parsed.error.issues[0].message, 'error')
-      return
-    }
-
+    if (!editingId) return
     setSubmitting(true)
     try {
-      if (txType === 'aporte') {
-        await addDeposit(parsed.data)
-      } else {
-        await addWithdrawal(parsed.data)
-      }
-      showToast(
-        txType === 'aporte' ? 'Depósito realizado!' : 'Resgate realizado!',
-        'success',
-      )
-      setShowTxModal(false)
-      resetTxForm()
-    } catch {
-      showToast('Erro ao processar transação', 'error')
-    } finally {
-      setSubmitting(false)
-    }
+      await updateAccount(editingId, {
+        nome: editNome,
+        tipo: editTipo,
+        saldo_atual: parseFloat(editValor) || 0,
+      })
+      showToast('Investimento atualizado!', 'success')
+      setShowEditModal(false)
+      setEditingId(null)
+    } catch { showToast('Erro ao atualizar', 'error') }
+    finally { setSubmitting(false) }
   }
 
-  const inputWrapStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 12,
-    border: '1.5px solid #e2e8f0',
-    borderRadius: 14,
-    padding: '14px 16px',
-    background: '#fff',
+  const handleDelete = async () => {
+    if (!editingId) return
+    if (!window.confirm('Tem certeza que deseja excluir este investimento?')) return
+    try {
+      await deleteAccount(editingId)
+      showToast('Investimento excluído', 'success')
+      setShowEditModal(false)
+      setEditingId(null)
+    } catch { showToast('Erro ao excluir', 'error') }
   }
-  const inputStyle: React.CSSProperties = {
-    flex: 1,
-    border: 'none',
-    outline: 'none',
-    fontSize: 15,
-    color: '#1e293b',
-    background: 'transparent',
-    width: '100%',
-  }
-  const labelStyle: React.CSSProperties = {
-    display: 'block',
-    fontSize: 14,
-    fontWeight: 500,
-    color: '#1e293b',
-    marginBottom: 8,
-  }
+
+  const iw: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e2e8f0', borderRadius: 14, padding: '14px 16px', background: '#fff' }
+  const is: React.CSSProperties = { flex: 1, border: 'none', outline: 'none', fontSize: 15, color: '#1e293b', background: 'transparent', width: '100%' }
+  const ls: React.CSSProperties = { display: 'block', fontSize: 14, fontWeight: 500, color: '#1e293b', marginBottom: 8 }
+  const btnBlue: React.CSSProperties = { width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1, boxShadow: '0 4px 14px rgba(37,99,235,0.3)' }
+
+  const bankIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+  const typeIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+  const dollarIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
 
   return (
     <PageContainer>
       <Header title="Investimentos" />
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 20px' }}>
-        {/* Total invested */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-            borderRadius: 20,
-            padding: 24,
-            color: '#fff',
-          }}
-        >
+        {/* Total */}
+        <div style={{ background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)', borderRadius: 20, padding: 24, color: '#fff' }}>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', margin: 0 }}>Total Investido</p>
-          <p style={{ fontSize: 28, fontWeight: 700, margin: '6px 0 0' }}>
-            {formatCurrency(totalInvested)}
-          </p>
+          <p style={{ fontSize: 28, fontWeight: 700, margin: '6px 0 0' }}>{formatCurrency(totalInvested)}</p>
         </div>
 
-        {/* Add account button */}
-        <button
-          onClick={() => setShowAccountModal(true)}
-          style={{
-            width: '100%',
-            padding: '14px 0',
-            borderRadius: 14,
-            border: 'none',
-            background: '#2563eb',
-            color: '#fff',
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: 'pointer',
-            boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
-          }}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Nova Conta
+        {/* Add button */}
+        <button onClick={() => setShowAddModal(true)} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 14px rgba(37,99,235,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Novo Investimento
         </button>
 
-        {/* Accounts list */}
+        {/* List */}
         {loading ? (
-          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
-            Carregando...
-          </p>
+          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>Carregando...</p>
         ) : accounts.length === 0 ? (
-          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
-            Nenhuma conta de investimento
-          </p>
+          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>Nenhum investimento cadastrado</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {accounts.map((account) => (
               <div
                 key={account.id}
-                style={{
-                  background: '#fff',
-                  borderRadius: 16,
-                  border: '1px solid #e2e8f0',
-                  padding: 16,
-                }}
+                onClick={() => openEditModal(account)}
+                style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 16, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
               >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div
-                      style={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: '50%',
-                        backgroundColor: '#2563eb',
-                        flexShrink: 0,
-                      }}
-                      aria-hidden="true"
-                    />
-                    <div>
-                      <p style={{ fontSize: 14, fontWeight: 500, color: '#1e293b', margin: 0 }}>
-                        {account.nome}
-                      </p>
-                      <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, margin: '2px 0 0' }}>
-                        {account.tipo}
-                      </p>
-                    </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                   </div>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', margin: 0 }}>
-                    {formatCurrency(account.saldo_atual)}
-                  </p>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 500, color: '#1e293b', margin: 0 }}>{account.nome}</p>
+                    <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>{account.tipo}</p>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                  <button
-                    onClick={() => openTxModal(account.id, 'aporte')}
-                    style={{
-                      flex: 1,
-                      borderRadius: 10,
-                      padding: 10,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: 'rgba(22,163,74,0.1)',
-                      color: '#16a34a',
-                    }}
-                  >
-                    Depositar
-                  </button>
-                  <button
-                    onClick={() => openTxModal(account.id, 'resgate')}
-                    style={{
-                      flex: 1,
-                      borderRadius: 10,
-                      padding: 10,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      border: 'none',
-                      cursor: 'pointer',
-                      background: 'rgba(220,38,38,0.1)',
-                      color: '#dc2626',
-                    }}
-                  >
-                    Resgatar
-                  </button>
-                </div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#16a34a', margin: 0 }}>{formatCurrency(account.saldo_atual)}</p>
               </div>
             ))}
           </div>
         )}
       </div>
 
-      {/* Add Account Modal */}
-      <Modal
-        isOpen={showAccountModal}
-        onClose={() => setShowAccountModal(false)}
-        title="Nova Conta"
-      >
-        <form onSubmit={handleCreateAccount} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div>
-            <label style={labelStyle}>Nome</label>
-            <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-              <input
-                type="text"
-                placeholder="Ex: Nubank"
-                value={accountNome}
-                onChange={(e) => setAccountNome(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Tipo</label>
-            <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              <input
-                type="text"
-                placeholder="Ex: CDB, Ações, Tesouro"
-                value={accountTipo}
-                onChange={(e) => setAccountTipo(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Cor</label>
-            <input
-              type="color"
-              value={accountCor}
-              onChange={(e) => setAccountCor(e.target.value)}
-              style={{
-                width: '100%',
-                height: 44,
-                borderRadius: 14,
-                border: '1.5px solid #e2e8f0',
-                background: '#fff',
-                cursor: 'pointer',
-                padding: 4,
-              }}
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              width: '100%',
-              padding: '16px 0',
-              borderRadius: 14,
-              border: 'none',
-              background: '#2563eb',
-              color: '#fff',
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              opacity: submitting ? 0.6 : 1,
-              boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
-            }}
-          >
-            {submitting ? 'Salvando...' : 'Criar Conta'}
-          </button>
+      {/* Add Modal */}
+      <Modal isOpen={showAddModal} onClose={() => setShowAddModal(false)} title="Novo Investimento">
+        <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div><label style={ls}>Instituição</label><div style={iw}>{bankIcon}<input type="text" placeholder="Ex: Nubank, XP, Inter" value={nome} onChange={(e) => setNome(e.target.value)} style={is} /></div></div>
+          <div><label style={ls}>Tipo do investimento</label><div style={iw}>{typeIcon}<input type="text" placeholder="Ex: CDB, Tesouro, Ações" value={tipo} onChange={(e) => setTipo(e.target.value)} style={is} /></div></div>
+          <div><label style={ls}>Valor investido</label><div style={iw}>{dollarIcon}<input type="number" placeholder="0,00" value={valor} onChange={(e) => setValor(e.target.value)} style={is} /></div></div>
+          <button type="submit" disabled={submitting} style={btnBlue}>{submitting ? 'Salvando...' : 'Salvar'}</button>
         </form>
       </Modal>
 
-      {/* Transaction Modal */}
-      <Modal
-        isOpen={showTxModal}
-        onClose={() => setShowTxModal(false)}
-        title={txType === 'aporte' ? 'Depositar' : 'Resgatar'}
-      >
-        <form onSubmit={handleTransaction} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div>
-            <label style={labelStyle}>Valor</label>
-            <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              <input
-                type="number"
-                placeholder="0,00"
-                value={txValor}
-                onChange={(e) => setTxValor(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Descrição (opcional)</label>
-            <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              <input
-                type="text"
-                placeholder="Ex: Aporte mensal"
-                value={txDescricao}
-                onChange={(e) => setTxDescricao(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Data</label>
-            <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              <input
-                type="date"
-                value={txData}
-                onChange={(e) => setTxData(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            style={{
-              width: '100%',
-              padding: '16px 0',
-              borderRadius: 14,
-              border: 'none',
-              background: '#2563eb',
-              color: '#fff',
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: submitting ? 'not-allowed' : 'pointer',
-              opacity: submitting ? 0.6 : 1,
-              boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
-            }}
-          >
-            {submitting ? 'Processando...' : 'Confirmar'}
+      {/* Edit Modal */}
+      <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); setEditingId(null) }} title="Editar Investimento">
+        <form onSubmit={handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <div><label style={ls}>Instituição</label><div style={iw}>{bankIcon}<input type="text" value={editNome} onChange={(e) => setEditNome(e.target.value)} style={is} /></div></div>
+          <div><label style={ls}>Tipo do investimento</label><div style={iw}>{typeIcon}<input type="text" value={editTipo} onChange={(e) => setEditTipo(e.target.value)} style={is} /></div></div>
+          <div><label style={ls}>Valor investido</label><div style={iw}>{dollarIcon}<input type="number" value={editValor} onChange={(e) => setEditValor(e.target.value)} style={is} /></div></div>
+          <button type="submit" disabled={submitting} style={btnBlue}>{submitting ? 'Atualizando...' : 'Atualizar'}</button>
+          <button type="button" onClick={handleDelete} style={{ width: '100%', padding: '12px 0', border: 'none', background: 'none', color: '#dc2626', fontSize: 14, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Excluir investimento
           </button>
         </form>
       </Modal>

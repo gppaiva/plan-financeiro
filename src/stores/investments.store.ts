@@ -7,6 +7,8 @@ import type {
 import {
   listAccounts,
   createAccount as createAccountService,
+  updateAccount as updateAccountService,
+  deleteAccount as deleteAccountService,
   addDeposit as addDepositService,
   addWithdrawal as addWithdrawalService,
   listTransactions,
@@ -18,6 +20,8 @@ interface InvestmentsState {
   loading: boolean
   fetchAccounts: (userId: string) => Promise<void>
   createAccount: (userId: string, data: InvestmentAccountFormData) => Promise<void>
+  updateAccount: (id: string, data: Partial<InvestmentAccountFormData> & { saldo_atual?: number }) => Promise<void>
+  deleteAccount: (id: string) => Promise<void>
   addDeposit: (data: InvestmentTransactionFormData) => Promise<void>
   addWithdrawal: (data: InvestmentTransactionFormData) => Promise<void>
   fetchTransactions: (accountId: string) => Promise<void>
@@ -41,6 +45,24 @@ export const useInvestmentsStore = create<InvestmentsState>((set, get) => ({
   createAccount: async (userId, data) => {
     const created = await createAccountService(userId, data)
     set((state) => ({ accounts: [...state.accounts, created] }))
+  },
+
+  updateAccount: async (id, data) => {
+    const updated = await updateAccountService(id, data)
+    set((state) => ({
+      accounts: state.accounts.map((a) => (a.id === id ? updated : a)),
+    }))
+  },
+
+  deleteAccount: async (id) => {
+    const { accounts } = get()
+    set({ accounts: accounts.filter((a) => a.id !== id) })
+    try {
+      await deleteAccountService(id)
+    } catch (error) {
+      set({ accounts })
+      throw error
+    }
   },
 
   addDeposit: async (data) => {

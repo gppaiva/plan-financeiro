@@ -48,6 +48,41 @@ export async function createAccount(
 }
 
 /**
+ * Updates an existing investment account.
+ */
+export async function updateAccount(
+  id: string,
+  data: Partial<InvestmentAccountFormData> & { saldo_atual?: number },
+): Promise<InvestmentAccount> {
+  const { data: updated, error } = await supabase
+    .from(ACCOUNTS_TABLE)
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return updated as InvestmentAccount
+}
+
+/**
+ * Deletes an investment account by id.
+ */
+export async function deleteAccount(id: string): Promise<void> {
+  const { error } = await supabase
+    .from(ACCOUNTS_TABLE)
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+}
+
+/**
  * Lists all transactions for a given investment account, ordered by date ascending.
  */
 export async function listTransactions(
