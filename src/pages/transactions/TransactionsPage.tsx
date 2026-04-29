@@ -175,7 +175,7 @@ export function TransactionsPage() {
 
     setSubmitting(true)
     try {
-      await addExpense(profileId, parsed.data)
+      await addExpense(profileId, { ...parsed.data, data_final: recorrente && dataFinal ? dataFinal : undefined } as never)
       showToast('Despesa adicionada!', 'success')
       setShowModal(false)
       resetForm()

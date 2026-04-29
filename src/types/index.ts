@@ -54,6 +54,7 @@ export interface Expense {
   quinzena: Quinzena
   status: ExpenseStatus
   recorrente: boolean
+  data_final: string | null
   created_at: string
   updated_at: string
 }
