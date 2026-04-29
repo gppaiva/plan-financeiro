@@ -14,7 +14,7 @@ export function OnboardingPage() {
   const [loading, setLoading] = useState(false)
 
   // Step 1 = Ciclo de pagamento (was step 2)
-  const step1 = data.step1 as { ciclo?: string }
+  const step1 = data.step1 as { ciclo?: string; cicloTipo?: string }
   // Step 2 = Renda (was step 3)
   const step2 = data.step2 as {
     salario_bruto?: number
@@ -205,7 +205,7 @@ export function OnboardingPage() {
 
             <button
               type="button"
-              onClick={() => setStepData(1, { ciclo: 'quinzenal' })}
+              onClick={() => setStepData(1, { ...step1, ciclo: 'quinzenal' })}
               style={{
                 borderRadius: 16,
                 border: step1.ciclo === 'quinzenal' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
@@ -217,9 +217,44 @@ export function OnboardingPage() {
             >
               <span style={{ fontSize: 15, fontWeight: 600, color: '#1e293b' }}>Quinzenal</span>
               <p style={{ fontSize: 13, color: '#64748b', marginTop: 4, margin: '4px 0 0' }}>
-                Recebo no dia 15 e no último dia útil
+                Recebo duas vezes por mês
               </p>
             </button>
+
+            {/* Quinzena cycle options */}
+            {step1.ciclo === 'quinzenal' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: 8 }}>
+                <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b', margin: 0 }}>Quais dias você recebe?</p>
+                <button
+                  type="button"
+                  onClick={() => setStepData(1, { ...step1, cicloTipo: '15_ultimo' })}
+                  style={{
+                    borderRadius: 12,
+                    border: step1.cicloTipo === '15_ultimo' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
+                    background: step1.cicloTipo === '15_ultimo' ? 'rgba(37,99,235,0.04)' : '#fff',
+                    padding: 14,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>Dia 15 e Último dia útil</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStepData(1, { ...step1, cicloTipo: '5_20' })}
+                  style={{
+                    borderRadius: 12,
+                    border: step1.cicloTipo === '5_20' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
+                    background: step1.cicloTipo === '5_20' ? 'rgba(37,99,235,0.04)' : '#fff',
+                    padding: 14,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <span style={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>5º dia útil e Dia 20</span>
+                </button>
+              </div>
+            )}
 
             <button
               type="button"
@@ -287,7 +322,7 @@ export function OnboardingPage() {
             {step1.ciclo === 'quinzenal' && (
               <>
                 <div>
-                  <label style={labelStyle}>Valor quinzena 1 (dia 15)</label>
+                  <label style={labelStyle}>Valor quinzena 1 ({step1.cicloTipo === '5_20' ? '5º dia útil' : 'dia 15'})</label>
                   <div style={inputWrapStyle}>
                     <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
                     <input
@@ -305,7 +340,7 @@ export function OnboardingPage() {
                 </div>
 
                 <div>
-                  <label style={labelStyle}>Valor quinzena 2 (último dia útil)</label>
+                  <label style={labelStyle}>Valor quinzena 2 ({step1.cicloTipo === '5_20' ? 'dia 20' : 'último dia útil'})</label>
                   <div style={inputWrapStyle}>
                     <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
                     <input
