@@ -41,12 +41,16 @@ export function OnboardingPage() {
       const q1 = step2.quinzena1 || 0
       const q2 = step2.quinzena2 || 0
 
+      const cicloTipo = step1.cicloTipo || '15_ultimo'
+      const dia1 = cicloTipo === '5_20' ? 5 : 15
+      const dia2 = cicloTipo === '5_20' ? 20 : 30
+
       await createProfile(user.id, {
         nome: user.user_metadata?.nome || user.user_metadata?.full_name || '',
         email: user.email || '',
         salario_liquido: salarioLiquido,
-        dia_pagamento_1: q1 > 0 ? 15 : 15,
-        dia_pagamento_2: q2 > 0 ? 30 : 30,
+        dia_pagamento_1: dia1,
+        dia_pagamento_2: dia2,
       })
 
       // Save ciclo_tipo and quinzena values
@@ -54,9 +58,11 @@ export function OnboardingPage() {
       await supabase
         .from('user_profiles')
         .update({
-          ciclo_tipo: step1.cicloTipo || '15_ultimo',
+          ciclo_tipo: cicloTipo,
           quinzena_1_valor: q1,
           quinzena_2_valor: q2,
+          dia_pagamento_1: dia1,
+          dia_pagamento_2: dia2,
         })
         .eq('auth_user_id', user.id)
 
