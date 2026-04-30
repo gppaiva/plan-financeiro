@@ -6,16 +6,25 @@ import type { ThirdPartyExpenseFormData } from '../schemas/third-party.schema'
 const TABLE = 'third_party_expenses'
 
 /**
- * Lists all third-party expenses for a user, ordered by due date ascending.
+ * Lists third-party expenses for a user, optionally filtered by month/year.
  */
 export async function listThirdPartyExpenses(
   userId: string,
+  filters?: { month: number; year: number },
 ): Promise<ThirdPartyExpense[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from(TABLE)
     .select('*')
     .eq('user_id', userId)
-    .order('data_vencimento', { ascending: true })
+
+  if (filters) {
+    const startDate = `${filters.year}-${String(filters.month).padStart(2, '0')}-01`
+    const lastDay = new Date(filters.year, filters.month, 0).getDate()
+    const endDate = `${filters.year}-${String(filters.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    query = query.gte('data_vencimento', startDate).lte('data_vencimento', endDate)
+  }
+
+  const { data, error } = await query.order('data_vencimento', { ascending: true })
 
   if (error) {
     throw new Error(error.message)

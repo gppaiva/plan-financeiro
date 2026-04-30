@@ -12,7 +12,7 @@ import {
 interface ThirdPartyState {
   expenses: ThirdPartyExpense[]
   loading: boolean
-  fetchExpenses: (userId: string) => Promise<void>
+  fetchExpenses: (userId: string, filters?: { month: number; year: number }) => Promise<void>
   addExpense: (userId: string, data: ThirdPartyExpenseFormData) => Promise<void>
   updateExpense: (id: string, data: Partial<ThirdPartyExpenseFormData>) => Promise<void>
   toggleStatus: (id: string) => Promise<void>
@@ -23,10 +23,10 @@ export const useThirdPartyStore = create<ThirdPartyState>((set, get) => ({
   expenses: [],
   loading: false,
 
-  fetchExpenses: async (userId) => {
+  fetchExpenses: async (userId, filters) => {
     set({ loading: true })
     try {
-      const expenses = await listThirdPartyExpenses(userId)
+      const expenses = await listThirdPartyExpenses(userId, filters)
       set({ expenses })
     } finally {
       set({ loading: false })

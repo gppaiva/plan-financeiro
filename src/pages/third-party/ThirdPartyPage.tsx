@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Header } from '../../components/layout/Header'
 import { PageContainer } from '../../components/layout/PageContainer'
+import { MonthYearSelector } from '../../components/ui/MonthYearSelector'
 import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { useThirdPartyStore } from '../../stores/third-party.store'
@@ -19,6 +20,15 @@ export function ThirdPartyPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // Month/Year selector
+  const now = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  const handleMonthChange = useCallback((month: number, year: number) => {
+    setSelectedMonth(month)
+    setSelectedYear(year)
+  }, [])
+
   // Add form state
   const [pessoa, setPessoa] = useState('')
   const [descricao, setDescricao] = useState('')
@@ -32,8 +42,8 @@ export function ThirdPartyPage() {
   const [editDataVencimento, setEditDataVencimento] = useState('')
 
   useEffect(() => {
-    if (profileId) { fetchExpenses(profileId) }
-  }, [profileId, fetchExpenses])
+    if (profileId) { fetchExpenses(profileId, { month: selectedMonth, year: selectedYear }) }
+  }, [profileId, selectedMonth, selectedYear, fetchExpenses])
 
   const groupedByPerson = useMemo(() => {
     const groups = new Map<string, ThirdPartyExpense[]>()
@@ -120,6 +130,7 @@ export function ThirdPartyPage() {
   return (
     <PageContainer>
       <Header title="Terceiros" />
+      <MonthYearSelector month={selectedMonth} year={selectedYear} onChange={handleMonthChange} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 20px' }}>
         <button onClick={() => setShowModal(true)} style={{ width: '100%', padding: '14px 0', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontSize: 15, fontWeight: 600, cursor: 'pointer', boxShadow: '0 4px 14px rgba(37,99,235,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
