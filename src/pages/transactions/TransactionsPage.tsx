@@ -94,7 +94,7 @@ export function TransactionsPage() {
     setEditQuinzena(expense.quinzena)
     setEditDataVencimento(expense.data_vencimento)
     setEditRecorrente(expense.recorrente)
-    setEditDiaVencimento(String(new Date(expense.data_vencimento).getDate() || 10))
+    setEditDiaVencimento(expense.data_vencimento ? expense.data_vencimento.split('-')[2]?.replace(/^0/, '') || '10' : '10')
     setEditDataFinal(expense.data_final || '')
     setShowEditModal(true)
   }, [])
@@ -105,14 +105,41 @@ export function TransactionsPage() {
 
     setSubmitting(true)
     try {
-      await updateExpense(editingExpenseId, {
-        descricao: editDescricao,
-        valor: parseFloat(editValor) || 0,
-        categoria: editCategoria as typeof EXPENSE_CATEGORIES[number],
-        quinzena: editQuinzena as '1' | '2',
-        data_vencimento: editDataVencimento,
-        recorrente: editRecorrente,
-      })
+      // For recurring expenses, build data_vencimento from the day selector
+      let finalDataVencimento = editDataVencimento
+      if (editRecorrente) {
+        // Use the day from editDiaVencimento with the original month/year from the expense
+        const day = String(parseInt(editDiaVencimento) || 10).padStart(2, '0')
+        // Keep the original date's month/year, just change the day
+        const originalDate = editDataVencimento || `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
+        const [origYear, origMonth] = originalDate.split('-')
+        finalDataVencimento = `${origYear}-${origMonth}-${day}`
+      }
+
+      // Update via supabase directly to include data_final
+      const { supabase } = await import('../../lib/supabase')
+      const { data: updated, error } = await supabase
+        .from('expenses')
+        .update({
+          descricao: editDescricao,
+          valor: parseFloat(editValor) || 0,
+          categoria: editCategoria,
+          quinzena: editQuinzena,
+          data_vencimento: finalDataVencimento,
+          recorrente: editRecorrente,
+          data_final: editRecorrente && editDataFinal ? editDataFinal : null,
+        })
+        .eq('id', editingExpenseId)
+        .select()
+        .single()
+
+      if (error) throw new Error(error.message)
+
+      // Update store
+      useExpensesStore.setState((state) => ({
+        expenses: state.expenses.map((e) => (e.id === editingExpenseId ? (updated as typeof e) : e)),
+      }))
+
       showToast('Despesa atualizada!', 'success')
       setShowEditModal(false)
       setEditingExpenseId(null)
