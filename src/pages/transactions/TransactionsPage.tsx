@@ -131,8 +131,8 @@ export function TransactionsPage() {
     const editData = {
       descricao: editDescricao,
       valor: parseFloat(editValor) || 0,
-      categoria: editCategoria,
-      quinzena: editQuinzena,
+      categoria: editCategoria as Expense['categoria'],
+      quinzena: editQuinzena as Expense['quinzena'],
       data_vencimento: finalDataVencimento,
       recorrente: editRecorrente,
       data_final: editRecorrente && editDataFinal ? editDataFinal : null,
