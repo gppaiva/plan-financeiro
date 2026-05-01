@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../../components/ui/Toast'
+import { Modal } from '../../components/ui/Modal'
 import {
   signInWithEmail,
   signUpWithEmail,
@@ -36,6 +37,7 @@ export function AuthPage() {
   const [showPw, setShowPw] = useState(false)
   const [showCpw, setShowCpw] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [showInstall, setShowInstall] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -171,7 +173,103 @@ export function AuthPage() {
         <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text2)', marginTop: 32 }}>
           Ao continuar, você concorda com nossos Termos de Uso
         </p>
+
+        {/* Install shortcut link */}
+        <button
+          type="button"
+          onClick={() => setShowInstall(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            width: '100%',
+            padding: '12px 0',
+            marginTop: 16,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 13,
+            color: '#2563eb',
+            fontWeight: 500,
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+            <line x1="12" y1="18" x2="12.01" y2="18" />
+          </svg>
+          Instalar no celular
+        </button>
       </div>
+
+      {/* Install instructions modal */}
+      <Modal
+        isOpen={showInstall}
+        onClose={() => setShowInstall(false)}
+        title="Instalar no Celular"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* iPhone */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
+              </svg>
+              <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>iPhone (Safari)</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>1</span>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>Abra o site no <strong>Safari</strong></p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>2</span>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>Toque no ícone de <strong>compartilhar</strong> (quadrado com seta pra cima)</p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>3</span>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>Role e toque em <strong>"Adicionar à Tela de Início"</strong></p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>4</span>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>Toque em <strong>"Adicionar"</strong> no canto superior direito</p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ height: 1, background: 'var(--border)' }} />
+
+          {/* Android */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" />
+              </svg>
+              <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>Android (Chrome)</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>1</span>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>Abra o site no <strong>Chrome</strong></p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>2</span>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>Toque nos <strong>3 pontinhos</strong> (menu) no canto superior direito</p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>3</span>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>Toque em <strong>"Adicionar à tela inicial"</strong> ou <strong>"Instalar app"</strong></p>
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ width: 24, height: 24, borderRadius: '50%', background: '#2563eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flexShrink: 0 }}>4</span>
+                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.5 }}>Confirme tocando em <strong>"Instalar"</strong></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

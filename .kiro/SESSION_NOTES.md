@@ -131,3 +131,8 @@ Ao iniciar nova sessão, pedir para ler:
 - Arquivo: `src/lib/biometric.ts` (serviço WebAuthn)
 - Lock screen no `App.tsx` (BiometricLockScreen component)
 - Requer HTTPS em produção (funciona em localhost para dev)
+
+### 14. Instruções de Instalação no Celular
+- Botão "Instalar no celular" na tela de login
+- Modal com passo a passo para iPhone (Safari) e Android (Chrome)
+- 4 passos numerados para cada plataforma com instruções claras
