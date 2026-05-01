@@ -108,7 +108,7 @@ export function InvoiceDetailModal({
     }
     setRedirecting(true)
     try {
-      await supabase.from('third_party_expenses').insert({
+      const { error } = await supabase.from('third_party_expenses').insert({
         user_id: expense.user_id,
         pessoa: redirectPessoa.trim(),
         descricao: item.descricao,
@@ -116,11 +116,13 @@ export function InvoiceDetailModal({
         data_vencimento: item.data_compra,
         status: 'pending',
       })
+      if (error) throw new Error(error.message)
       showToast(`Gasto direcionado para ${redirectPessoa.trim()}!`, 'success')
       setRedirectingItemId(null)
       setRedirectPessoa('')
-    } catch {
-      showToast('Erro ao direcionar gasto', 'error')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      showToast(`Erro ao direcionar gasto: ${msg}`, 'error')
     } finally {
       setRedirecting(false)
     }
