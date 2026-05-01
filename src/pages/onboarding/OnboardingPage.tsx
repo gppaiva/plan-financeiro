@@ -5,7 +5,7 @@ import { useOnboardingStore } from '../../stores/onboarding.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { createProfile } from '../../services/profile.service'
 import { parseCurrency, formatCurrencyInput } from '../../lib/format'
-import logo from '../../assets/logo.png'
+import logo from '../../assets/logoapenasNew.png'
 
 export function OnboardingPage() {
   const navigate = useNavigate()

@@ -1,6 +1,6 @@
 import { useThemeStore } from '../../stores/theme.store'
 import { signOut } from '../../services/auth.service'
-import logo from '../../assets/logo.png'
+import logo from '../../assets/logoapenasNew.png'
 
 interface HeaderProps {
   title: string
