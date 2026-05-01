@@ -224,8 +224,10 @@ export function DashboardPage() {
   const miniCardStyle: React.CSSProperties = {
     background: 'rgba(255,255,255,0.12)',
     borderRadius: 10,
-    padding: 10,
+    padding: '8px 10px',
     flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
   }
 
   return (
@@ -309,7 +311,7 @@ export function DashboardPage() {
                 </svg>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Ganho</span>
               </div>
-              <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {formatCurrency(income)}
               </p>
             </div>
@@ -331,7 +333,7 @@ export function DashboardPage() {
                 </svg>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Despesas</span>
               </div>
-              <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {formatCurrency(totalExpenses)}
               </p>
             </div>
@@ -352,7 +354,7 @@ export function DashboardPage() {
                 </svg>
                 <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Extras</span>
               </div>
-              <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {formatCurrency(totalExtraIncomes)}
               </p>
             </div>
@@ -389,14 +391,14 @@ export function DashboardPage() {
         </div>
 
         {/* Quinzena filter pills */}
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
           {filters.map((f) => (
             <button
               key={f.value}
               onClick={() => setQuinzenaFilter(f.value)}
               style={{
                 borderRadius: 20,
-                padding: '8px 16px',
+                padding: '8px 14px',
                 fontSize: 13,
                 fontWeight: 500,
                 border: 'none',
@@ -404,6 +406,8 @@ export function DashboardPage() {
                 background: quinzenaFilter === f.value ? '#2563eb' : '#f1f5f9',
                 color: quinzenaFilter === f.value ? '#fff' : '#64748b',
                 transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
               {f.label}
