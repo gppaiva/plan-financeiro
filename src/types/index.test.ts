@@ -50,8 +50,12 @@ describe('Type structure validation', () => {
       email: 'user@example.com',
       nome: 'João Silva',
       salario_liquido: 5000,
+      quinzena_1_valor: 2500,
+      quinzena_2_valor: 2500,
+      ciclo_tipo: '15_ultimo',
       dia_pagamento_1: 5,
       dia_pagamento_2: 20,
+      dia_pagamento_mensal: null,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     }
@@ -70,6 +74,7 @@ describe('Type structure validation', () => {
       quinzena: '1',
       status: 'pending',
       recorrente: false,
+      data_final: null,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     }
@@ -126,6 +131,7 @@ describe('Type structure validation', () => {
       user_id: '123e4567-e89b-12d3-a456-426614174001',
       descricao: 'Freelance',
       valor: 2000,
+      quinzena: '1',
       data: '2024-01-20',
       created_at: '2024-01-01T00:00:00Z',
     }

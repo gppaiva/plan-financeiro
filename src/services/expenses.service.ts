@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 import type { EditScope, Expense, ExpenseFilters, ExpenseOverride, ExpenseStatus } from '../types'
-import { expenseSchema } from '../schemas/expense.schema'
+import { expenseSchema, createExpenseSchema } from '../schemas/expense.schema'
 import type { ExpenseFormData } from '../schemas/expense.schema'
 
 const TABLE = 'expenses'
@@ -94,14 +94,18 @@ export async function listExpenses(
 
 /**
  * Creates a new expense after validating with Zod schema.
+ * Accepts an optional cicloTipo to use the appropriate schema for validation.
+ * For mensal users, quinzena is optional (null in DB).
  */
 export async function createExpense(
   userId: string,
-  data: ExpenseFormData & { data_final?: string },
+  data: ExpenseFormData & { data_final?: string; quinzena?: string | null },
+  cicloTipo?: string,
 ): Promise<Expense> {
   // Validate data with Zod schema (data_final is not in the schema)
   const { data_final, ...formData } = data as ExpenseFormData & { data_final?: string }
-  const validated = expenseSchema.parse(formData)
+  const schema = cicloTipo ? createExpenseSchema(cicloTipo) : expenseSchema
+  const validated = schema.parse(formData)
 
   const { data: created, error } = await supabase
     .from(TABLE)

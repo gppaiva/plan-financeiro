@@ -114,7 +114,7 @@
     - **EXPECTED OUTCOME**: Testes PASSAM (confirma que não houve regressão)
     - Confirmar que todos os testes continuam passando após o fix
 
-- [x] 4. Checkpoint — Garantir que todos os testes passam
+- [ ] 4. Checkpoint — Garantir que todos os testes passam
   - Executar `vitest run` para rodar toda a suite de testes
   - Verificar que todos os testes passam (exploratórios, preservação e existentes)
   - Perguntar ao usuário se há dúvidas ou ajustes necessários

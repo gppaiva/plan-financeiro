@@ -15,7 +15,7 @@ export function OnboardingPage() {
   const [loading, setLoading] = useState(false)
 
   // Step 1 = Ciclo de pagamento (was step 2)
-  const step1 = data.step1 as { ciclo?: string; cicloTipo?: string }
+  const step1 = data.step1 as { ciclo?: string; cicloTipo?: string; diaPagamento?: number }
   // Step 2 = Renda (was step 3)
   const step2 = data.step2 as {
     salario_bruto?: number
@@ -28,6 +28,18 @@ export function OnboardingPage() {
     quinzena2_display?: string
   }
   // Step 3 = Rendimentos extras (was step 4)
+
+  // Validation for step 1 mensal day
+  const [diaPagamentoError, setDiaPagamentoError] = useState('')
+
+  const isStep1Valid = (() => {
+    if (step1.ciclo === 'quinzenal') return !!step1.cicloTipo
+    if (step1.ciclo === 'mensal') {
+      const dia = step1.diaPagamento
+      return dia !== undefined && dia >= 1 && dia <= 31
+    }
+    return false
+  })()
 
   const handleNext = () => {
     nextStep()
@@ -42,7 +54,8 @@ export function OnboardingPage() {
       const q1 = step2.quinzena1 || 0
       const q2 = step2.quinzena2 || 0
 
-      const cicloTipo = step1.cicloTipo || '15_ultimo'
+      const cicloTipo = step1.cicloTipo || (step1.ciclo === 'mensal' ? 'mensal' : '15_ultimo')
+      const isMensalCiclo = cicloTipo === 'mensal'
       const dia1 = cicloTipo === '5_20' ? 5 : 15
       const dia2 = cicloTipo === '5_20' ? 20 : 30
 
@@ -60,10 +73,11 @@ export function OnboardingPage() {
         .from('user_profiles')
         .update({
           ciclo_tipo: cicloTipo,
-          quinzena_1_valor: q1,
-          quinzena_2_valor: q2,
+          quinzena_1_valor: isMensalCiclo ? 0 : q1,
+          quinzena_2_valor: isMensalCiclo ? 0 : q2,
           dia_pagamento_1: dia1,
           dia_pagamento_2: dia2,
+          dia_pagamento_mensal: isMensalCiclo ? (step1.diaPagamento ?? null) : null,
         })
         .eq('auth_user_id', user.id)
 
@@ -277,7 +291,7 @@ export function OnboardingPage() {
 
             <button
               type="button"
-              onClick={() => setStepData(1, { ciclo: 'mensal' })}
+              onClick={() => setStepData(1, { ciclo: 'mensal', diaPagamento: undefined })}
               style={{
                 borderRadius: 16,
                 border: step1.ciclo === 'mensal' ? '1.5px solid #2563eb' : '1.5px solid var(--border)',
@@ -292,6 +306,33 @@ export function OnboardingPage() {
                 Recebo uma vez por mês
               </p>
             </button>
+
+            {/* Day of payment input for mensal */}
+            {step1.ciclo === 'mensal' && (
+              <div style={{ paddingLeft: 8 }}>
+                <label style={labelStyle}>Dia do pagamento</label>
+                <div style={inputWrapStyle}>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={31}
+                    placeholder="Ex: 5"
+                    value={step1.diaPagamento ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? undefined : parseInt(e.target.value, 10)
+                      const isValid = val === undefined || (Number.isInteger(val) && val >= 1 && val <= 31)
+                      setDiaPagamentoError(val !== undefined && !isValid ? 'Dia deve ser entre 1 e 31' : '')
+                      setStepData(1, { ...step1, diaPagamento: val })
+                    }}
+                    style={inputStyle}
+                  />
+                </div>
+                {diaPagamentoError && (
+                  <p style={{ fontSize: 12, color: '#ef4444', marginTop: 4, margin: '4px 0 0' }}>{diaPagamentoError}</p>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -452,6 +493,7 @@ export function OnboardingPage() {
           {step < totalSteps ? (
             <button
               onClick={handleNext}
+              disabled={step === 1 && !isStep1Valid}
               style={{
                 flex: 1,
                 padding: '16px 0',
@@ -461,7 +503,8 @@ export function OnboardingPage() {
                 color: '#fff',
                 fontSize: 15,
                 fontWeight: 600,
-                cursor: 'pointer',
+                cursor: (step === 1 && !isStep1Valid) ? 'not-allowed' : 'pointer',
+                opacity: (step === 1 && !isStep1Valid) ? 0.6 : 1,
                 boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
               }}
             >

@@ -9,9 +9,9 @@ import { useThirdPartyStore } from '../../stores/third-party.store'
 import { useExtraIncomeStore } from '../../stores/extra-income.store'
 import { useProfile, clearProfileCache } from '../../hooks/useProfile'
 import { updateProfile } from '../../services/profile.service'
-import { filterByQuinzena, calculatePaidTotal, calculatePendingTotal } from '../../lib/quinzena'
+import { filterByQuinzena, calculatePaidTotal, calculatePendingTotal, isMensal } from '../../lib/quinzena'
 import { formatCurrency, parseCurrency, formatCurrencyInput } from '../../lib/format'
-import { extraIncomeSchema } from '../../schemas/extra-income.schema'
+import { extraIncomeSchema, createExtraIncomeSchema } from '../../schemas/extra-income.schema'
 import type { Quinzena, Expense, ExpenseCategory, ExtraIncome } from '../../types'
 
 type QuinzenaFilter = 'all' | Quinzena
@@ -41,6 +41,8 @@ export function DashboardPage() {
   const [editQ1Num, setEditQ1Num] = useState(0)
   const [editQ2, setEditQ2] = useState('')
   const [editQ2Num, setEditQ2Num] = useState(0)
+  const [editSalarioLiquido, setEditSalarioLiquido] = useState('')
+  const [editSalarioLiquidoNum, setEditSalarioLiquidoNum] = useState(0)
   const [savingIncome, setSavingIncome] = useState(false)
   const { showToast } = useToast()
 
@@ -54,13 +56,18 @@ export function DashboardPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<ExtraIncome | null>(null)
   const [deletingExtra, setDeletingExtra] = useState(false)
 
+  const mensal = isMensal(profile?.ciclo_tipo)
+
   const openIncomeModal = useCallback(() => {
     const q1 = profile?.quinzena_1_valor ?? 0
     const q2 = profile?.quinzena_2_valor ?? 0
+    const sl = profile?.salario_liquido ?? 0
     setEditQ1Num(q1)
     setEditQ1(formatCurrencyInput(q1))
     setEditQ2Num(q2)
     setEditQ2(formatCurrencyInput(q2))
+    setEditSalarioLiquidoNum(sl)
+    setEditSalarioLiquido(formatCurrencyInput(sl))
     setExtraDesc('')
     setExtraValorDisplay('')
     setExtraQuinzena('1')
@@ -74,15 +81,26 @@ export function DashboardPage() {
     if (!user || !profile) return
     setSavingIncome(true)
     try {
-      const totalSalario = editQ1Num + editQ2Num
-      await updateProfile(user.id, {
-        salario_liquido: totalSalario,
-      })
-      const { supabase } = await import('../../lib/supabase')
-      await supabase
-        .from('user_profiles')
-        .update({ quinzena_1_valor: editQ1Num, quinzena_2_valor: editQ2Num, salario_liquido: totalSalario })
-        .eq('auth_user_id', user.id)
+      if (mensal) {
+        await updateProfile(user.id, {
+          salario_liquido: editSalarioLiquidoNum,
+        })
+        const { supabase } = await import('../../lib/supabase')
+        await supabase
+          .from('user_profiles')
+          .update({ salario_liquido: editSalarioLiquidoNum })
+          .eq('auth_user_id', user.id)
+      } else {
+        const totalSalario = editQ1Num + editQ2Num
+        await updateProfile(user.id, {
+          salario_liquido: totalSalario,
+        })
+        const { supabase } = await import('../../lib/supabase')
+        await supabase
+          .from('user_profiles')
+          .update({ quinzena_1_valor: editQ1Num, quinzena_2_valor: editQ2Num, salario_liquido: totalSalario })
+          .eq('auth_user_id', user.id)
+      }
       clearProfileCache()
       showToast('Renda atualizada!', 'success')
       setShowIncomeModal(false)
@@ -101,7 +119,7 @@ export function DashboardPage() {
     setEditingExtra(income)
     setExtraDesc(income.descricao)
     setExtraValorDisplay(formatCurrencyInput(income.valor))
-    setExtraQuinzena(income.quinzena)
+    setExtraQuinzena(income.quinzena ?? '1')
     setExtraErrors({})
   }, [])
 
@@ -115,7 +133,11 @@ export function DashboardPage() {
 
   const handleSaveExtra = useCallback(async () => {
     const valorNum = parseCurrency(extraValorDisplay)
-    const result = extraIncomeSchema.safeParse({ descricao: extraDesc, valor: valorNum, quinzena: extraQuinzena })
+    const schema = mensal ? createExtraIncomeSchema('mensal') : extraIncomeSchema
+    const formData = mensal
+      ? { descricao: extraDesc, valor: valorNum }
+      : { descricao: extraDesc, valor: valorNum, quinzena: extraQuinzena }
+    const result = schema.safeParse(formData)
     if (!result.success) {
       const fieldErrors: { descricao?: string; valor?: string; quinzena?: string } = {}
       for (const issue of result.error.issues) {
@@ -145,7 +167,7 @@ export function DashboardPage() {
     } finally {
       setAddingExtra(false)
     }
-  }, [extraDesc, extraValorDisplay, extraQuinzena, editingExtra, profileId, selectedMonth, selectedYear, addExtraIncome, updateExtraIncome, showToast])
+  }, [extraDesc, extraValorDisplay, extraQuinzena, editingExtra, profileId, selectedMonth, selectedYear, addExtraIncome, updateExtraIncome, showToast, mensal])
 
   const handleDeleteExtra = useCallback(async () => {
     if (!showDeleteConfirm) return
@@ -196,16 +218,17 @@ export function DashboardPage() {
 
   const incomeTotal = profile?.salario_liquido ?? 0
   const income = useMemo(() => {
+    if (mensal) return incomeTotal
     if (quinzenaFilter === '1') return profile?.quinzena_1_valor ?? 0
     if (quinzenaFilter === '2') return profile?.quinzena_2_valor ?? 0
     return incomeTotal
-  }, [quinzenaFilter, profile, incomeTotal])
+  }, [quinzenaFilter, profile, incomeTotal, mensal])
   const totalExtraIncomes = useMemo(
     () => {
-      if (quinzenaFilter === 'all') return extraIncomes.reduce((sum, e) => sum + e.valor, 0)
+      if (mensal || quinzenaFilter === 'all') return extraIncomes.reduce((sum, e) => sum + e.valor, 0)
       return extraIncomes.filter((e) => e.quinzena === quinzenaFilter).reduce((sum, e) => sum + e.valor, 0)
     },
-    [extraIncomes, quinzenaFilter],
+    [extraIncomes, quinzenaFilter, mensal],
   )
   const saldoReal = income + totalExtraIncomes - totalExpenses
 
@@ -399,6 +422,7 @@ export function DashboardPage() {
         </div>
 
         {/* Quinzena filter pills */}
+        {!mensal && (
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
           {filters.map((f) => (
             <button
@@ -422,6 +446,7 @@ export function DashboardPage() {
             </button>
           ))}
         </div>
+        )}
 
         {/* Paid/Pending stats */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -566,9 +591,30 @@ export function DashboardPage() {
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <p style={{ fontSize: 13, color: 'var(--text2)', margin: 0 }}>
-            Ajuste os valores das quinzenas e adicione ganhos extras para este mês.
+            {mensal ? 'Ajuste o salário líquido e adicione ganhos extras para este mês.' : 'Ajuste os valores das quinzenas e adicione ganhos extras para este mês.'}
           </p>
 
+          {mensal ? (
+            /* Single salary field for mensal */
+            <div>
+              <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
+                Salário líquido
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--card-bg)' }}>
+                <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  value={editSalarioLiquido}
+                  onChange={(e) => { setEditSalarioLiquido(e.target.value); setEditSalarioLiquidoNum(parseCurrency(e.target.value)) }}
+                  onBlur={() => setEditSalarioLiquido(formatCurrencyInput(editSalarioLiquidoNum))}
+                  style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: 'var(--text)', background: 'transparent' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
           {/* Quinzena 1 */}
           <div>
             <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
@@ -606,6 +652,8 @@ export function DashboardPage() {
               />
             </div>
           </div>
+            </>
+          )}
 
           {/* Divider */}
           <div style={{ height: 1, background: 'var(--border)' }} />
@@ -658,9 +706,11 @@ export function DashboardPage() {
                             <p style={{ fontSize: 14, fontWeight: 600, color: '#16a34a', margin: 0 }}>
                               {formatCurrency(ei.valor)}
                             </p>
+                            {!mensal && ei.quinzena && (
                             <span style={{ fontSize: 11, color: 'var(--text2)', background: 'var(--bg2)', borderRadius: 6, padding: '1px 6px' }}>
                               Q{ei.quinzena}
                             </span>
+                            )}
                           </div>
                         </div>
                         <div style={{ display: 'flex', gap: 4, marginLeft: 8, flexShrink: 0 }}>
@@ -728,6 +778,7 @@ export function DashboardPage() {
                 <p style={{ fontSize: 12, color: '#ef4444', margin: 0 }}>{extraErrors.valor}</p>
               )}
               {/* Quinzena selector */}
+              {!mensal && (
               <div style={{ display: 'flex', gap: 8 }}>
                 <button
                   type="button"
@@ -768,6 +819,7 @@ export function DashboardPage() {
                   {q2Label}
                 </button>
               </div>
+              )}
               <div style={{ display: 'flex', gap: 8 }}>
                 {editingExtra && (
                   <button
@@ -807,7 +859,7 @@ export function DashboardPage() {
           {/* Total preview */}
           <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 14, color: 'var(--text2)' }}>Total mensal</span>
-            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{formatCurrency(editQ1Num + editQ2Num + totalExtraIncomes)}</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{formatCurrency((mensal ? editSalarioLiquidoNum : editQ1Num + editQ2Num) + totalExtraIncomes)}</span>
           </div>
 
           <button

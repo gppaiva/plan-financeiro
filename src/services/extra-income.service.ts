@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 import type { ExtraIncome } from '../types'
-import { extraIncomeSchema } from '../schemas/extra-income.schema'
+import { extraIncomeSchema, createExtraIncomeSchema } from '../schemas/extra-income.schema'
 import type { ExtraIncomeFormData } from '../schemas/extra-income.schema'
 
 const TABLE = 'extra_incomes'
@@ -32,14 +32,18 @@ export async function listExtraIncomes(
 /**
  * Creates a new extra income after validating with Zod schema.
  * Sets the `data` field to the first day of the selected month.
+ * Accepts an optional cicloTipo to use the appropriate schema for validation.
+ * For mensal users, quinzena is optional (null in DB).
  */
 export async function createExtraIncome(
   userId: string,
-  data: ExtraIncomeFormData,
+  data: ExtraIncomeFormData & { quinzena?: string | null },
   month: number,
   year: number,
+  cicloTipo?: string,
 ): Promise<ExtraIncome> {
-  const validated = extraIncomeSchema.parse(data)
+  const schema = cicloTipo ? createExtraIncomeSchema(cicloTipo) : extraIncomeSchema
+  const validated = schema.parse(data)
 
   const firstDayOfMonth = `${year}-${String(month).padStart(2, '0')}-01`
 
@@ -49,7 +53,7 @@ export async function createExtraIncome(
       user_id: userId,
       descricao: validated.descricao,
       valor: validated.valor,
-      quinzena: validated.quinzena,
+      quinzena: validated.quinzena ?? null,
       data: firstDayOfMonth,
     })
     .select()

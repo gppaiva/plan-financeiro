@@ -40,6 +40,7 @@ export interface UserProfile {
   ciclo_tipo: string
   dia_pagamento_1: number
   dia_pagamento_2: number
+  dia_pagamento_mensal: number | null
   created_at: string
   updated_at: string
 }
@@ -51,7 +52,7 @@ export interface Expense {
   valor: number
   categoria: ExpenseCategory
   data_vencimento: string
-  quinzena: Quinzena
+  quinzena: Quinzena | null
   status: ExpenseStatus
   recorrente: boolean
   data_final: string | null
@@ -95,7 +96,7 @@ export interface ExtraIncome {
   user_id: string
   descricao: string
   valor: number
-  quinzena: Quinzena
+  quinzena: Quinzena | null
   data: string
   created_at: string
 }

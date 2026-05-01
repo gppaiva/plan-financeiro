@@ -9,13 +9,21 @@ export function getQuinzenaLabel(q: Quinzena): string {
 
 /**
  * Filters items by quinzena. When filter is 'all', returns all items.
+ * Items with quinzena === null are included in 'all' and excluded in specific filters.
  */
-export function filterByQuinzena<T extends { quinzena: Quinzena }>(
+export function filterByQuinzena<T extends { quinzena: Quinzena | null }>(
   items: T[],
   filter: 'all' | Quinzena,
 ): T[] {
   if (filter === 'all') return items
   return items.filter((item) => item.quinzena === filter)
+}
+
+/**
+ * Returns true if the given cicloTipo represents a monthly payment cycle.
+ */
+export function isMensal(cicloTipo: string | undefined): boolean {
+  return cicloTipo === 'mensal'
 }
 
 /**

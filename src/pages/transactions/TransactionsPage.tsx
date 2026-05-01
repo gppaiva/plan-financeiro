@@ -6,8 +6,9 @@ import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { useExpensesStore } from '../../stores/expenses.store'
 import { useProfile } from '../../hooks/useProfile'
-import { expenseSchema } from '../../schemas/expense.schema'
+import { expenseSchema, createExpenseSchema } from '../../schemas/expense.schema'
 import { formatCurrency, formatDate } from '../../lib/format'
+import { isMensal } from '../../lib/quinzena'
 import { EXPENSE_CATEGORIES } from '../../types'
 import type { Expense, EditScope } from '../../types'
 
@@ -25,6 +26,7 @@ const categoryEmojis: Record<string, string> = {
 
 export function TransactionsPage() {
   const { profile, profileId } = useProfile()
+  const mensal = isMensal(profile?.ciclo_tipo)
   const { expenses, loading, fetchExpenses, addExpense, updateExpense, toggleExpenseStatus, removeExpense } =
     useExpensesStore()
   const { showToast } = useToast()
@@ -126,7 +128,7 @@ export function TransactionsPage() {
     setEditDescricao(expense.descricao)
     setEditValor(String(expense.valor))
     setEditCategoria(expense.categoria)
-    setEditQuinzena(expense.quinzena)
+    setEditQuinzena(expense.quinzena ?? '1')
     setEditDataVencimento(expense.data_vencimento)
     setEditRecorrente(expense.recorrente)
     setEditDiaVencimento(expense.data_vencimento ? expense.data_vencimento.split('-')[2]?.replace(/^0/, '') || '10' : '10')
@@ -151,7 +153,7 @@ export function TransactionsPage() {
       descricao: editDescricao,
       valor: parseFloat(editValor) || 0,
       categoria: editCategoria as Expense['categoria'],
-      quinzena: editQuinzena as Expense['quinzena'],
+      quinzena: mensal ? null : editQuinzena as Expense['quinzena'],
       data_vencimento: finalDataVencimento,
       recorrente: editRecorrente,
       data_final: editRecorrente && editDataFinal ? editDataFinal : null,
@@ -236,11 +238,13 @@ export function TransactionsPage() {
       ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(diaVencimento).padStart(2, '0')}`
       : dataVencimento
 
-    const parsed = expenseSchema.safeParse({
+    const cicloTipo = profile?.ciclo_tipo || '15_ultimo'
+    const schema = createExpenseSchema(cicloTipo)
+    const parsed = schema.safeParse({
       descricao,
       valor: parseFloat(valor) || 0,
       categoria,
-      quinzena,
+      ...(mensal ? {} : { quinzena }),
       data_vencimento: finalDate,
       status: 'pending' as const,
       recorrente,
@@ -349,6 +353,7 @@ export function TransactionsPage() {
         </button>
 
         {/* Quinzena filter pills */}
+        {!mensal && (
         <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
           {quinzenaFilters.map((f) => (
             <button
@@ -372,6 +377,7 @@ export function TransactionsPage() {
             </button>
           ))}
         </div>
+        )}
 
         {/* Expense list */}
         {loading ? (
@@ -488,12 +494,14 @@ export function TransactionsPage() {
               {EXPENSE_CATEGORIES.map((c) => (<option key={c} value={c}>{c}</option>))}
             </select>
           </div>
+          {!mensal && (
           <div>
             <label style={labelStyle}>Quinzena</label>
             <select value={editQuinzena} onChange={(e) => setEditQuinzena(e.target.value)} style={selectStyle}>
               {quinzenaOptions.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
             </select>
           </div>
+          )}
           <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--text)', cursor: 'pointer' }}>
             <input type="checkbox" checked={editRecorrente} onChange={(e) => setEditRecorrente(e.target.checked)} style={{ width: 18, height: 18, accentColor: '#2563eb' }} />
             Despesa fixa (recorrente)
@@ -607,6 +615,7 @@ export function TransactionsPage() {
             </div>
           </div>
 
+          {!mensal && (
           <div>
             <label style={labelStyle}>Quinzena</label>
             <select
@@ -619,6 +628,7 @@ export function TransactionsPage() {
               ))}
             </select>
           </div>
+          )}
 
           <label
             style={{
