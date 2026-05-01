@@ -136,3 +136,10 @@ Ao iniciar nova sessão, pedir para ler:
 - Botão "Instalar no celular" na tela de login
 - Modal com passo a passo para iPhone (Safari) e Android (Chrome)
 - 4 passos numerados para cada plataforma com instruções claras
+
+### 15. Login por Username ou Email
+- Campo de login aceita email OU nome de usuário
+- Se não tem `@`, busca o email via RPC `get_email_by_username` (SECURITY DEFINER, bypassa RLS)
+- Username salvo no cadastro (auth metadata + user_profiles.username)
+- Migration 009: coluna `username` (UNIQUE) + função RPC pública
+- Onboarding salva username do metadata no perfil

@@ -34,6 +34,7 @@ export interface UserProfile {
   id: string
   email: string
   nome: string
+  username: string | null
   salario_liquido: number
   quinzena_1_valor: number
   quinzena_2_valor: number

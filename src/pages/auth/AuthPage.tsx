@@ -5,6 +5,7 @@ import { Modal } from '../../components/ui/Modal'
 import {
   signInWithEmail,
   signUpWithEmail,
+  getEmailByUsername,
 } from '../../services/auth.service'
 import { hasCompletedOnboarding } from '../../services/profile.service'
 import {
@@ -44,7 +45,19 @@ export function AuthPage() {
     setLoading(true)
     try {
       if (mode === 'login') {
-        const result = await signInWithEmail(email, password)
+        let loginEmail = email.trim()
+
+        // If the input doesn't look like an email, treat it as a username
+        if (!loginEmail.includes('@')) {
+          const resolved = await getEmailByUsername(loginEmail)
+          if (!resolved) {
+            showToast('Usuário não encontrado', 'error')
+            return
+          }
+          loginEmail = resolved
+        }
+
+        const result = await signInWithEmail(loginEmail, password)
         if (result.error) { showToast('E-mail ou senha inválidos', 'error'); return }
         if (result.user) {
           // Offer biometric setup if available but not yet enabled
@@ -71,7 +84,7 @@ export function AuthPage() {
         if (!username.trim()) { showToast('Nome de usuário é obrigatório', 'error'); return }
         if (password.length < 6) { showToast('Senha deve ter pelo menos 6 caracteres', 'error'); return }
         if (password !== confirmPassword) { showToast('As senhas não coincidem', 'error'); return }
-        const result = await signUpWithEmail(name, email, password)
+        const result = await signUpWithEmail(name, email, password, username)
         if (result.error) { showToast(result.error, 'error'); return }
         showToast('Conta criada com sucesso!', 'success')
         navigate('/onboarding')
@@ -140,12 +153,12 @@ export function AuthPage() {
             </div>
           )}
 
-          {/* E-mail */}
+          {/* E-mail / Username */}
           <div style={{ marginBottom: 18 }}>
-            <label style={label}>E-mail</label>
+            <label style={label}>{mode === 'login' ? 'E-mail ou nome de usuário' : 'E-mail'}</label>
             <div style={inputWrap}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-              <input type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} style={inputField} autoComplete="email" />
+              <input type={mode === 'login' ? 'text' : 'email'} placeholder={mode === 'login' ? 'seu@email.com ou usuario' : 'seu@email.com'} value={email} onChange={(e) => setEmail(e.target.value)} style={inputField} autoComplete={mode === 'login' ? 'username' : 'email'} />
             </div>
           </div>
 

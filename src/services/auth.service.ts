@@ -21,12 +21,13 @@ export async function signUpWithEmail(
   name: string,
   email: string,
   password: string,
+  username?: string,
 ): Promise<AuthResult> {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: { nome: name },
+      data: { nome: name, username: username || null },
     },
   })
 
@@ -35,6 +36,18 @@ export async function signUpWithEmail(
     user: data.user,
     error: error?.message ?? null,
   }
+}
+
+/**
+ * Look up the email associated with a username via a public RPC function.
+ * Uses SECURITY DEFINER on the DB side so it works before authentication.
+ */
+export async function getEmailByUsername(username: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('get_email_by_username', {
+    p_username: username,
+  })
+  if (error || !data) return null
+  return data as string
 }
 
 export async function signInWithGoogle(): Promise<void> {

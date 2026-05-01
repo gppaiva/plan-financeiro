@@ -78,6 +78,7 @@ export function OnboardingPage() {
           dia_pagamento_1: dia1,
           dia_pagamento_2: dia2,
           dia_pagamento_mensal: isMensalCiclo ? (step1.diaPagamento ?? null) : null,
+          username: user.user_metadata?.username || null,
         })
         .eq('auth_user_id', user.id)
 
