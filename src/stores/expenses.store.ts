@@ -1,10 +1,11 @@
 import { create } from 'zustand'
-import type { Expense, ExpenseFilters } from '../types'
+import type { EditScope, Expense, ExpenseFilters } from '../types'
 import type { ExpenseFormData } from '../schemas/expense.schema'
 import {
   listExpenses,
   createExpense,
   updateExpense as updateExpenseService,
+  updateExpenseWithScope,
   toggleExpenseStatus as toggleExpenseStatusService,
   deleteExpense,
 } from '../services/expenses.service'
@@ -14,7 +15,7 @@ interface ExpensesState {
   loading: boolean
   fetchExpenses: (userId: string, filters?: ExpenseFilters) => Promise<void>
   addExpense: (userId: string, data: ExpenseFormData) => Promise<void>
-  updateExpense: (id: string, data: Partial<ExpenseFormData>) => Promise<void>
+  updateExpense: (id: string, data: Partial<ExpenseFormData>, scope?: EditScope, month?: number, year?: number) => Promise<void>
   toggleExpenseStatus: (id: string, month?: number, year?: number) => Promise<void>
   removeExpense: (id: string) => Promise<void>
 }
@@ -38,11 +39,23 @@ export const useExpensesStore = create<ExpensesState>((set, get) => ({
     set((state) => ({ expenses: [...state.expenses, created] }))
   },
 
-  updateExpense: async (id, data) => {
-    const updated = await updateExpenseService(id, data)
-    set((state) => ({
-      expenses: state.expenses.map((e) => (e.id === id ? updated : e)),
-    }))
+  updateExpense: async (id, data, scope, month, year) => {
+    if (scope && month !== undefined && year !== undefined) {
+      // Recurring expense with scope — use scoped update
+      await updateExpenseWithScope(id, data, scope, month, year)
+      // Re-fetch expenses to reflect overrides in the listing
+      const { expenses } = get()
+      if (expenses.length > 0) {
+        const userId = expenses[0].user_id
+        await get().fetchExpenses(userId, { month, year })
+      }
+    } else {
+      // Non-recurring expense — keep current behavior
+      const updated = await updateExpenseService(id, data)
+      set((state) => ({
+        expenses: state.expenses.map((e) => (e.id === id ? updated : e)),
+      }))
+    }
   },
 
   toggleExpenseStatus: async (id, month, year) => {

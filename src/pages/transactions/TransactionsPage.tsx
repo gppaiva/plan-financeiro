@@ -9,7 +9,7 @@ import { useProfile } from '../../hooks/useProfile'
 import { expenseSchema } from '../../schemas/expense.schema'
 import { formatCurrency, formatDate } from '../../lib/format'
 import { EXPENSE_CATEGORIES } from '../../types'
-import type { Expense } from '../../types'
+import type { Expense, EditScope } from '../../types'
 
 const categoryEmojis: Record<string, string> = {
   'Alimentação': '🍔',
@@ -25,13 +25,29 @@ const categoryEmojis: Record<string, string> = {
 
 export function TransactionsPage() {
   const { profile, profileId } = useProfile()
-  const { expenses, loading, fetchExpenses, addExpense, toggleExpenseStatus, removeExpense } =
+  const { expenses, loading, fetchExpenses, addExpense, updateExpense, toggleExpenseStatus, removeExpense } =
     useExpensesStore()
   const { showToast } = useToast()
   const [showModal, setShowModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  // Scope modal state for recurring expense edits
+  const [showScopeModal, setShowScopeModal] = useState(false)
+  const [pendingEditData, setPendingEditData] = useState<{
+    id: string
+    data: {
+      descricao: string
+      valor: number
+      categoria: string
+      quinzena: string
+      data_vencimento: string
+      recorrente: boolean
+      data_final: string | null
+    }
+  } | null>(null)
+  const [scopeLoading, setScopeLoading] = useState(false)
 
   // Dynamic quinzena options based on user's ciclo_tipo
   const quinzenaOptions = useMemo(() => {
@@ -103,51 +119,68 @@ export function TransactionsPage() {
     e.preventDefault()
     if (!editingExpenseId) return
 
-    setSubmitting(true)
-    try {
-      // For recurring expenses, build data_vencimento from the day selector
-      let finalDataVencimento = editDataVencimento
-      if (editRecorrente) {
-        // Use the day from editDiaVencimento with the original month/year from the expense
-        const day = String(parseInt(editDiaVencimento) || 10).padStart(2, '0')
-        // Keep the original date's month/year, just change the day
-        const originalDate = editDataVencimento || `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
-        const [origYear, origMonth] = originalDate.split('-')
-        finalDataVencimento = `${origYear}-${origMonth}-${day}`
-      }
+    // For recurring expenses, build data_vencimento from the day selector
+    let finalDataVencimento = editDataVencimento
+    if (editRecorrente) {
+      const day = String(parseInt(editDiaVencimento) || 10).padStart(2, '0')
+      const originalDate = editDataVencimento || `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
+      const [origYear, origMonth] = originalDate.split('-')
+      finalDataVencimento = `${origYear}-${origMonth}-${day}`
+    }
 
-      // Update via supabase directly to include data_final
-      const { supabase } = await import('../../lib/supabase')
-      const { data: updated, error } = await supabase
-        .from('expenses')
-        .update({
-          descricao: editDescricao,
-          valor: parseFloat(editValor) || 0,
-          categoria: editCategoria,
-          quinzena: editQuinzena,
-          data_vencimento: finalDataVencimento,
-          recorrente: editRecorrente,
-          data_final: editRecorrente && editDataFinal ? editDataFinal : null,
-        })
-        .eq('id', editingExpenseId)
-        .select()
-        .single()
+    const editData = {
+      descricao: editDescricao,
+      valor: parseFloat(editValor) || 0,
+      categoria: editCategoria,
+      quinzena: editQuinzena,
+      data_vencimento: finalDataVencimento,
+      recorrente: editRecorrente,
+      data_final: editRecorrente && editDataFinal ? editDataFinal : null,
+    }
 
-      if (error) throw new Error(error.message)
-
-      // Update store
-      useExpensesStore.setState((state) => ({
-        expenses: state.expenses.map((e) => (e.id === editingExpenseId ? (updated as typeof e) : e)),
-      }))
-
-      showToast('Despesa atualizada!', 'success')
+    if (editRecorrente) {
+      // Recurring expense: save pending data and open scope modal
+      setPendingEditData({ id: editingExpenseId, data: editData })
       setShowEditModal(false)
+      setShowScopeModal(true)
+    } else {
+      // Non-recurring expense: save directly via store
+      setSubmitting(true)
+      try {
+        await updateExpense(editingExpenseId, editData)
+        showToast('Despesa atualizada!', 'success')
+        setShowEditModal(false)
+        setEditingExpenseId(null)
+      } catch {
+        showToast('Erro ao atualizar despesa', 'error')
+      } finally {
+        setSubmitting(false)
+      }
+    }
+  }
+
+  const handleScopeChoice = async (scope: EditScope) => {
+    if (!pendingEditData) return
+
+    setScopeLoading(true)
+    try {
+      await updateExpense(pendingEditData.id, pendingEditData.data, scope, selectedMonth, selectedYear)
+      showToast('Despesa atualizada!', 'success')
+      setShowScopeModal(false)
+      setPendingEditData(null)
       setEditingExpenseId(null)
     } catch {
       showToast('Erro ao atualizar despesa', 'error')
     } finally {
-      setSubmitting(false)
+      setScopeLoading(false)
     }
+  }
+
+  const handleScopeCancel = () => {
+    setShowScopeModal(false)
+    setPendingEditData(null)
+    // Re-open the edit modal so the user can continue editing
+    setShowEditModal(true)
   }
 
   const handleDeleteFromEdit = async () => {
@@ -629,6 +662,74 @@ export function TransactionsPage() {
             {submitting ? 'Salvando...' : 'Salvar'}
           </button>
         </form>
+      </Modal>
+
+      {/* Scope Selection Modal for Recurring Expenses */}
+      <Modal
+        isOpen={showScopeModal}
+        onClose={handleScopeCancel}
+        title="Escopo da Alteração"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          <p style={{ fontSize: 14, color: '#64748b', margin: 0 }}>
+            Esta é uma despesa recorrente. Como deseja aplicar a alteração?
+          </p>
+          <button
+            type="button"
+            disabled={scopeLoading}
+            onClick={() => handleScopeChoice('only_this_month')}
+            style={{
+              width: '100%',
+              padding: '14px 0',
+              borderRadius: 14,
+              border: '1.5px solid #e2e8f0',
+              background: '#fff',
+              color: '#64748b',
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: scopeLoading ? 'not-allowed' : 'pointer',
+              opacity: scopeLoading ? 0.6 : 1,
+            }}
+          >
+            Apenas este mês
+          </button>
+          <button
+            type="button"
+            disabled={scopeLoading}
+            onClick={() => handleScopeChoice('this_and_future')}
+            style={{
+              width: '100%',
+              padding: '14px 0',
+              borderRadius: 14,
+              border: 'none',
+              background: '#2563eb',
+              color: '#fff',
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: scopeLoading ? 'not-allowed' : 'pointer',
+              opacity: scopeLoading ? 0.6 : 1,
+              boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
+            }}
+          >
+            Este mês e todos os futuros
+          </button>
+          <button
+            type="button"
+            onClick={handleScopeCancel}
+            style={{
+              width: '100%',
+              padding: '12px 0',
+              border: 'none',
+              background: 'none',
+              color: '#94a3b8',
+              fontSize: 14,
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            Cancelar
+          </button>
+        </div>
       </Modal>
     </PageContainer>
   )

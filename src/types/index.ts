@@ -100,6 +100,21 @@ export interface ExtraIncome {
   created_at: string
 }
 
+export interface ExpenseOverride {
+  id: string
+  expense_id: string
+  mes: number
+  ano: number
+  valor: number | null
+  descricao: string | null
+  categoria: ExpenseCategory | null
+  quinzena: Quinzena | null
+  dia_vencimento: number | null
+  created_at: string
+}
+
+export type EditScope = 'only_this_month' | 'this_and_future'
+
 // ── Result Types ─────────────────────────────────────────────────────
 
 export interface AuthResult {

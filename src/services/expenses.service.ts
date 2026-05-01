@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import type { Expense, ExpenseFilters, ExpenseStatus } from '../types'
+import type { EditScope, Expense, ExpenseFilters, ExpenseOverride, ExpenseStatus } from '../types'
 import { expenseSchema } from '../schemas/expense.schema'
 import type { ExpenseFormData } from '../schemas/expense.schema'
 
@@ -70,11 +70,24 @@ export async function listExpenses(
   const recurringIds = filteredRecurring.map((e: Expense) => e.id)
   const payments = await getMonthlyPayments(recurringIds, filters.month, filters.year)
 
-  // Apply monthly status to recurring expenses
-  const recurringWithStatus = filteredRecurring.map((expense: Expense) => ({
-    ...expense,
-    status: payments[expense.id] || 'pending' as ExpenseStatus,
-  }))
+  // Get monthly overrides for recurring expenses
+  const overrides = await getMonthlyOverrides(recurringIds, filters.month, filters.year)
+
+  // Apply monthly status and overrides to recurring expenses
+  const recurringWithStatus = filteredRecurring.map((expense: Expense) => {
+    const override = overrides.find((o) => o.expense_id === expense.id)
+    return {
+      ...expense,
+      ...(override?.valor != null && { valor: override.valor }),
+      ...(override?.descricao != null && { descricao: override.descricao }),
+      ...(override?.categoria != null && { categoria: override.categoria }),
+      ...(override?.quinzena != null && { quinzena: override.quinzena }),
+      ...(override?.dia_vencimento != null && {
+        data_vencimento: `${filters.year}-${String(filters.month).padStart(2, '0')}-${String(override.dia_vencimento).padStart(2, '0')}`,
+      }),
+      status: payments[expense.id] || 'pending' as ExpenseStatus,
+    }
+  })
 
   return [...(normalData ?? []) as Expense[], ...recurringWithStatus as Expense[]]
 }
@@ -223,4 +236,105 @@ export async function getMonthlyPayments(
     result[payment.expense_id] = payment.status as ExpenseStatus
   }
   return result
+}
+
+
+/**
+ * Gets monthly overrides for recurring expenses in a specific month.
+ */
+export async function getMonthlyOverrides(
+  expenseIds: string[],
+  month: number,
+  year: number,
+): Promise<ExpenseOverride[]> {
+  if (expenseIds.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('expense_overrides')
+    .select('*')
+    .in('expense_id', expenseIds)
+    .eq('mes', month)
+    .eq('ano', year)
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as ExpenseOverride[]
+}
+
+/**
+ * Creates or updates a monthly override for a recurring expense.
+ */
+export async function upsertExpenseOverride(
+  expenseId: string,
+  month: number,
+  year: number,
+  data: {
+    valor?: number | null
+    descricao?: string | null
+    categoria?: string | null
+    quinzena?: string | null
+    dia_vencimento?: number | null
+  },
+): Promise<ExpenseOverride> {
+  const { data: upserted, error } = await supabase
+    .from('expense_overrides')
+    .upsert(
+      {
+        expense_id: expenseId,
+        mes: month,
+        ano: year,
+        ...data,
+      },
+      { onConflict: 'expense_id,mes,ano' },
+    )
+    .select()
+    .single()
+
+  if (error) throw new Error(error.message)
+  return upserted as ExpenseOverride
+}
+
+/**
+ * Updates an expense with scope awareness for recurring expenses.
+ * - 'only_this_month': creates/updates a monthly override (base record unchanged)
+ * - 'this_and_future': updates the base record directly
+ */
+export async function updateExpenseWithScope(
+  id: string,
+  data: Partial<ExpenseFormData>,
+  scope: EditScope,
+  month: number,
+  year: number,
+): Promise<Expense> {
+  if (scope === 'only_this_month') {
+    // Create/update override — base record stays unchanged
+    const overrideData: Record<string, unknown> = {}
+    if (data.valor !== undefined) overrideData.valor = data.valor
+    if (data.descricao !== undefined) overrideData.descricao = data.descricao
+    if (data.categoria !== undefined) overrideData.categoria = data.categoria
+    if (data.quinzena !== undefined) overrideData.quinzena = data.quinzena
+    if (data.data_vencimento !== undefined) {
+      // Extract day from date string (YYYY-MM-DD)
+      const day = parseInt(data.data_vencimento.split('-')[2], 10)
+      overrideData.dia_vencimento = day
+    }
+
+    await upsertExpenseOverride(id, month, year, overrideData)
+
+    // Return the expense with overridden fields applied (for UI update)
+    const { data: expense, error } = await supabase
+      .from(TABLE)
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (error) throw new Error(error.message)
+
+    return {
+      ...(expense as Expense),
+      ...data,
+    }
+  }
+
+  // scope === 'this_and_future': update the base record
+  return updateExpense(id, data)
 }
