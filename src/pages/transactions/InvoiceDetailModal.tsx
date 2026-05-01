@@ -264,7 +264,7 @@ export function InvoiceDetailModal({
                       </svg>
                       Direcionar gasto
                     </button>
-                  )
+                  )}
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
                   {editingItemId === item.id ? (
