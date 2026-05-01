@@ -7,7 +7,7 @@ import {
   signInWithGoogle,
 } from '../../services/auth.service'
 import { hasCompletedOnboarding } from '../../services/profile.service'
-import logo from '../../assets/logo.png'
+import logo from '../../assets/logologinNew.png'
 
 type AuthMode = 'login' | 'register'
 
