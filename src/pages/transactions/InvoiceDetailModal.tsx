@@ -113,7 +113,7 @@ export function InvoiceDetailModal({
         pessoa: redirectPessoa.trim(),
         descricao: item.descricao,
         valor: Number(item.valor),
-        data_vencimento: item.data_compra,
+        data_vencimento: expense.data_vencimento,
         status: 'pending',
       })
       if (error) throw new Error(error.message)
