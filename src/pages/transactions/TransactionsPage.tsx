@@ -40,8 +40,8 @@ export function TransactionsPage() {
     data: {
       descricao: string
       valor: number
-      categoria: string
-      quinzena: string
+      categoria: Expense['categoria']
+      quinzena: Expense['quinzena']
       data_vencimento: string
       recorrente: boolean
       data_final: string | null
