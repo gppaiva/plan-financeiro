@@ -190,9 +190,24 @@ export async function extractCsvFromZip(zipData: ArrayBuffer, password?: string)
 /** Parses a string with comma decimal separator to a number */
 function parseCommaDecimal(value: string): number {
   if (!value || value === '-') return NaN
-  // Remove dots (thousands separator) and replace comma with dot
-  const cleaned = value.replace(/\./g, '').replace(',', '.')
-  return parseFloat(cleaned)
+  const trimmed = value.trim()
+  
+  // Detect format: if has comma AND dot, comma is decimal (Brazilian: 1.234,56)
+  // If has only dot, dot is decimal (US/C6: 1234.56 or 50.00)
+  // If has only comma, comma is decimal (Brazilian: 50,00)
+  const hasDot = trimmed.includes('.')
+  const hasComma = trimmed.includes(',')
+  
+  if (hasDot && hasComma) {
+    // Brazilian format: 1.234,56 → remove dots, replace comma with dot
+    return parseFloat(trimmed.replace(/\./g, '').replace(',', '.'))
+  } else if (hasComma && !hasDot) {
+    // Comma as decimal: 50,00 → replace comma with dot
+    return parseFloat(trimmed.replace(',', '.'))
+  } else {
+    // Dot as decimal or no separator: 50.00 or 50 → parse directly
+    return parseFloat(trimmed)
+  }
 }
 
 /** Formats a number to comma decimal string (C6 CSV format) */
