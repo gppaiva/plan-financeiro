@@ -3,6 +3,7 @@ import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { listInvoiceItems, updateInvoiceItem } from '../../services/invoice.service'
 import { formatCurrency, formatDate } from '../../lib/format'
+import { supabase } from '../../lib/supabase'
 import type { Expense, InvoiceItem } from '../../types'
 
 interface InvoiceDetailModalProps {
@@ -24,6 +25,9 @@ export function InvoiceDetailModal({
   const [editingItemId, setEditingItemId] = useState<string | null>(null)
   const [editValor, setEditValor] = useState('')
   const [saving, setSaving] = useState(false)
+  const [redirectingItemId, setRedirectingItemId] = useState<string | null>(null)
+  const [redirectPessoa, setRedirectPessoa] = useState('')
+  const [redirecting, setRedirecting] = useState(false)
 
   const fetchItems = useCallback(async () => {
     if (!expense?.id) return
@@ -97,6 +101,31 @@ export function InvoiceDetailModal({
     }
   }
 
+  const handleRedirectToThirdParty = async (item: InvoiceItem) => {
+    if (!redirectPessoa.trim()) {
+      showToast('Informe o nome da pessoa', 'error')
+      return
+    }
+    setRedirecting(true)
+    try {
+      await supabase.from('third_party_expenses').insert({
+        user_id: expense.user_id,
+        pessoa: redirectPessoa.trim(),
+        descricao: item.descricao,
+        valor: Number(item.valor),
+        data_vencimento: item.data_compra,
+        status: 'pending',
+      })
+      showToast(`Gasto direcionado para ${redirectPessoa.trim()}!`, 'success')
+      setRedirectingItemId(null)
+      setRedirectPessoa('')
+    } catch {
+      showToast('Erro ao direcionar gasto', 'error')
+    } finally {
+      setRedirecting(false)
+    }
+  }
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Detalhe da Fatura">
       {loading ? (
@@ -149,6 +178,93 @@ export function InvoiceDetailModal({
                       </>
                     )}
                   </div>
+                  {/* Redirect to third party */}
+                  {redirectingItemId === item.id ? (
+                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="text"
+                        placeholder="Nome da pessoa"
+                        value={redirectPessoa}
+                        onChange={(e) => setRedirectPessoa(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleRedirectToThirdParty(item); if (e.key === 'Escape') { setRedirectingItemId(null); setRedirectPessoa('') } }}
+                        autoFocus
+                        style={{
+                          flex: 1,
+                          border: '1.5px solid var(--border)',
+                          borderRadius: 8,
+                          padding: '6px 10px',
+                          fontSize: 13,
+                          color: 'var(--text)',
+                          background: 'var(--card-bg)',
+                          outline: 'none',
+                        }}
+                      />
+                      <button
+                        onClick={() => handleRedirectToThirdParty(item)}
+                        disabled={redirecting || !redirectPessoa.trim()}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 8,
+                          border: 'none',
+                          background: '#2563eb',
+                          color: '#fff',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: redirecting || !redirectPessoa.trim() ? 'not-allowed' : 'pointer',
+                          opacity: redirecting || !redirectPessoa.trim() ? 0.6 : 1,
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {redirecting ? '...' : 'Enviar'}
+                      </button>
+                      <button
+                        onClick={() => { setRedirectingItemId(null); setRedirectPessoa('') }}
+                        style={{
+                          padding: '6px 8px',
+                          borderRadius: 8,
+                          border: 'none',
+                          background: 'var(--bg2)',
+                          color: 'var(--text2)',
+                          fontSize: 12,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setRedirectingItemId(item.id)
+                        setEditingItemId(null)
+                        setRedirectPessoa('')
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        marginTop: 6,
+                        padding: '4px 8px',
+                        borderRadius: 6,
+                        border: 'none',
+                        background: 'none',
+                        color: '#ea580c',
+                        fontSize: 11,
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                      Direcionar gasto
+                    </button>
+                  )
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
                   {editingItemId === item.id ? (
