@@ -391,7 +391,7 @@ export function DashboardPage() {
         </div>
 
         {/* Quinzena filter pills */}
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
           {filters.map((f) => (
             <button
               key={f.value}
