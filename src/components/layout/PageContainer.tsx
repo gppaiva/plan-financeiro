@@ -12,7 +12,7 @@ export function PageContainer({ children }: PageContainerProps) {
         minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
-        background: '#f8fafc',
+        background: 'var(--bg)',
       }}
     >
       <main

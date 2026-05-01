@@ -60,7 +60,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
           width: '100%',
           maxWidth: 430,
           maxHeight: '85vh',
-          background: '#fff',
+          background: 'var(--card-bg)',
           borderRadius: '24px 24px 0 0',
           boxShadow: '0 -4px 30px rgba(0,0,0,0.08)',
           display: 'flex',
@@ -77,7 +77,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             flexShrink: 0,
           }}
         >
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
             {title}
           </h2>
           <button
@@ -86,13 +86,13 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
               width: 32,
               height: 32,
               borderRadius: '50%',
-              background: '#f1f5f9',
+              background: 'var(--bg2)',
               border: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              color: '#64748b',
+              color: 'var(--text2)',
               flexShrink: 0,
             }}
             aria-label="Fechar"

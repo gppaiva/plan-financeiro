@@ -75,8 +75,8 @@ export function TabBar() {
         left: 0,
         right: 0,
         zIndex: 40,
-        borderTop: '1px solid #e2e8f0',
-        background: '#fff',
+        borderTop: '1px solid var(--border)',
+        background: 'var(--card-bg)',
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
@@ -92,7 +92,7 @@ export function TabBar() {
       >
         {tabs.map((tab) => {
           const isActive = location.pathname === tab.path
-          const color = isActive ? '#2563eb' : '#94a3b8'
+          const color = isActive ? '#2563eb' : 'var(--text2)'
           return (
             <button
               key={tab.path}

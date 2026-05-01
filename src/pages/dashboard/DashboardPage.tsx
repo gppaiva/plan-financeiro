@@ -411,8 +411,8 @@ export function DashboardPage() {
                 fontWeight: 500,
                 border: 'none',
                 cursor: 'pointer',
-                background: quinzenaFilter === f.value ? '#2563eb' : '#f1f5f9',
-                color: quinzenaFilter === f.value ? '#fff' : '#64748b',
+                background: quinzenaFilter === f.value ? '#2563eb' : 'var(--bg2)',
+                color: quinzenaFilter === f.value ? '#fff' : 'var(--text2)',
                 transition: 'all 0.2s',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
@@ -427,26 +427,26 @@ export function DashboardPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <div
             style={{
-              background: '#fff',
+              background: 'var(--card-bg)',
               borderRadius: 16,
-              border: '1px solid #e2e8f0',
+              border: '1px solid var(--border)',
               padding: 16,
             }}
           >
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Pago</p>
+            <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0 }}>Pago</p>
             <p style={{ fontSize: 18, fontWeight: 600, color: '#16a34a', marginTop: 6, margin: '6px 0 0' }}>
               {formatCurrency(paidTotal)}
             </p>
           </div>
           <div
             style={{
-              background: '#fff',
+              background: 'var(--card-bg)',
               borderRadius: 16,
-              border: '1px solid #e2e8f0',
+              border: '1px solid var(--border)',
               padding: 16,
             }}
           >
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Pendente</p>
+            <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0 }}>Pendente</p>
             <p style={{ fontSize: 18, fontWeight: 600, color: '#ea580c', marginTop: 6, margin: '6px 0 0' }}>
               {formatCurrency(pendingTotal)}
             </p>
@@ -455,7 +455,7 @@ export function DashboardPage() {
 
         {/* Category list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: '#64748b', margin: 0 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text2)', margin: 0 }}>
             Por Categoria
           </h2>
           {Array.from(categoryGroups.entries()).map(([category, items]) => {
@@ -466,9 +466,9 @@ export function DashboardPage() {
               <div
                 key={category}
                 style={{
-                  background: '#fff',
+                  background: 'var(--card-bg)',
                   borderRadius: 16,
-                  border: '1px solid #e2e8f0',
+                  border: '1px solid var(--border)',
                   overflow: 'hidden',
                 }}
               >
@@ -489,15 +489,15 @@ export function DashboardPage() {
                   }}
                 >
                   <div>
-                    <p style={{ fontSize: 14, fontWeight: 500, color: '#1e293b', margin: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', margin: 0 }}>
                       {category}
                     </p>
-                    <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, margin: '2px 0 0' }}>
+                    <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, margin: '2px 0 0' }}>
                       {items.length} item(ns)
                     </p>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
                       {formatCurrency(catTotal)}
                     </span>
                     <svg
@@ -505,7 +505,7 @@ export function DashboardPage() {
                       height="16"
                       viewBox="0 0 24 24"
                       fill="none"
-                      stroke="#94a3b8"
+                      stroke="var(--text2)"
                       strokeWidth="2"
                       aria-hidden="true"
                       style={{
@@ -528,18 +528,18 @@ export function DashboardPage() {
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           padding: '14px 16px',
-                          borderTop: '1px solid #f1f5f9',
+                          borderTop: '1px solid var(--border)',
                         }}
                       >
                         <div>
-                          <p style={{ fontSize: 14, color: '#334155', margin: 0 }}>
+                          <p style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>
                             {expense.descricao}
                           </p>
-                          <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, margin: '2px 0 0' }}>
+                          <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, margin: '2px 0 0' }}>
                             {expense.status === 'paid' ? '✓ Pago' : '○ Pendente'}
                           </p>
                         </div>
-                        <span style={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
                           {formatCurrency(expense.valor)}
                         </span>
                       </div>
@@ -551,7 +551,7 @@ export function DashboardPage() {
           })}
 
           {categoryGroups.size === 0 && (
-            <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
+            <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: 'var(--text2)' }}>
               Nenhuma despesa encontrada
             </p>
           )}
@@ -565,17 +565,17 @@ export function DashboardPage() {
         title="Editar Saldo do Mês"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+          <p style={{ fontSize: 13, color: 'var(--text2)', margin: 0 }}>
             Ajuste os valores das quinzenas e adicione ganhos extras para este mês.
           </p>
 
           {/* Quinzena 1 */}
           <div>
-            <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#1e293b', marginBottom: 8 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
               {q1Label}
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e2e8f0', borderRadius: 14, padding: '14px 16px', background: '#fff' }}>
-              <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--card-bg)' }}>
+              <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -583,18 +583,18 @@ export function DashboardPage() {
                 value={editQ1}
                 onChange={(e) => { setEditQ1(e.target.value); setEditQ1Num(parseCurrency(e.target.value)) }}
                 onBlur={() => setEditQ1(formatCurrencyInput(editQ1Num))}
-                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: '#1e293b', background: 'transparent' }}
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: 'var(--text)', background: 'transparent' }}
               />
             </div>
           </div>
 
           {/* Quinzena 2 */}
           <div>
-            <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#1e293b', marginBottom: 8 }}>
+            <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>
               {q2Label}
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e2e8f0', borderRadius: 14, padding: '14px 16px', background: '#fff' }}>
-              <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--card-bg)' }}>
+              <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -602,25 +602,25 @@ export function DashboardPage() {
                 value={editQ2}
                 onChange={(e) => { setEditQ2(e.target.value); setEditQ2Num(parseCurrency(e.target.value)) }}
                 onBlur={() => setEditQ2(formatCurrencyInput(editQ2Num))}
-                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: '#1e293b', background: 'transparent' }}
+                style={{ flex: 1, border: 'none', outline: 'none', fontSize: 15, color: 'var(--text)', background: 'transparent' }}
               />
             </div>
           </div>
 
           {/* Divider */}
-          <div style={{ height: 1, background: '#e2e8f0' }} />
+          <div style={{ height: 1, background: 'var(--border)' }} />
 
           {/* Extra Incomes Section */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <label style={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>
+              <label style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
                 Ganhos Extras do Mês
               </label>
             </div>
 
             {/* Existing extra incomes list */}
             {extraIncomesLoading ? (
-              <p style={{ textAlign: 'center', fontSize: 13, color: '#94a3b8', padding: '8px 0' }}>Carregando...</p>
+              <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text2)', padding: '8px 0' }}>Carregando...</p>
             ) : extraIncomes.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
                 {extraIncomes.map((ei) => (
@@ -633,7 +633,7 @@ export function DashboardPage() {
                           <button
                             type="button"
                             onClick={() => setShowDeleteConfirm(null)}
-                            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+                            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--card-bg)', color: 'var(--text2)', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
                           >
                             Não
                           </button>
@@ -649,16 +649,16 @@ export function DashboardPage() {
                       </div>
                     ) : (
                       /* Normal item row */
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg2)', borderRadius: 12, border: '1px solid var(--border)' }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, color: '#334155', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <p style={{ fontSize: 13, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {ei.descricao}
                           </p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
                             <p style={{ fontSize: 14, fontWeight: 600, color: '#16a34a', margin: 0 }}>
                               {formatCurrency(ei.valor)}
                             </p>
-                            <span style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9', borderRadius: 6, padding: '1px 6px' }}>
+                            <span style={{ fontSize: 11, color: 'var(--text2)', background: 'var(--bg2)', borderRadius: 6, padding: '1px 6px' }}>
                               Q{ei.quinzena}
                             </span>
                           </div>
@@ -670,7 +670,7 @@ export function DashboardPage() {
                             aria-label={`Editar ${ei.descricao}`}
                             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, display: 'flex' }}
                           >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                             </svg>
@@ -693,14 +693,14 @@ export function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 12px', textAlign: 'center' }}>
+              <p style={{ fontSize: 13, color: 'var(--text2)', margin: '0 0 12px', textAlign: 'center' }}>
                 Nenhum ganho extra neste mês
               </p>
             )}
 
             {/* Add/Edit extra income inline form */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, background: '#f8fafc', borderRadius: 12, border: '1.5px dashed #cbd5e1' }}>
-              <p style={{ fontSize: 12, fontWeight: 500, color: '#64748b', margin: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, background: 'var(--bg2)', borderRadius: 12, border: '1.5px dashed var(--border)' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--text2)', margin: 0 }}>
                 {editingExtra ? 'Editar ganho extra' : 'Adicionar ganho extra'}
               </p>
               <input
@@ -708,20 +708,20 @@ export function DashboardPage() {
                 placeholder="Ex: 13° salário, férias, PLR"
                 value={extraDesc}
                 onChange={(e) => setExtraDesc(e.target.value)}
-                style={{ border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#1e293b', background: '#fff', outline: 'none', borderColor: extraErrors.descricao ? '#ef4444' : '#e2e8f0' }}
+                style={{ border: '1.5px solid var(--border)', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: 'var(--text)', background: 'var(--card-bg)', outline: 'none', borderColor: extraErrors.descricao ? '#ef4444' : 'var(--border)' }}
               />
               {extraErrors.descricao && (
                 <p style={{ fontSize: 12, color: '#ef4444', margin: 0 }}>{extraErrors.descricao}</p>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1.5px solid', borderColor: extraErrors.valor ? '#ef4444' : '#e2e8f0', borderRadius: 10, padding: '10px 14px', background: '#fff' }}>
-                <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1.5px solid', borderColor: extraErrors.valor ? '#ef4444' : 'var(--border)', borderRadius: 10, padding: '10px 14px', background: 'var(--card-bg)' }}>
+                <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
                 <input
                   type="text"
                   inputMode="decimal"
                   placeholder="0,00"
                   value={extraValorDisplay}
                   onChange={(e) => setExtraValorDisplay(e.target.value.replace(/[^\d.,]/g, ''))}
-                  style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: '#1e293b', background: 'transparent' }}
+                  style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: 'var(--text)', background: 'transparent' }}
                 />
               </div>
               {extraErrors.valor && (
@@ -737,9 +737,9 @@ export function DashboardPage() {
                     padding: '10px 0',
                     borderRadius: 10,
                     border: '1.5px solid',
-                    borderColor: extraQuinzena === '1' ? '#2563eb' : '#e2e8f0',
-                    background: extraQuinzena === '1' ? '#eff6ff' : '#fff',
-                    color: extraQuinzena === '1' ? '#2563eb' : '#64748b',
+                    borderColor: extraQuinzena === '1' ? '#2563eb' : 'var(--border)',
+                    background: extraQuinzena === '1' ? '#eff6ff' : 'var(--card-bg)',
+                    color: extraQuinzena === '1' ? '#2563eb' : 'var(--text2)',
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -756,9 +756,9 @@ export function DashboardPage() {
                     padding: '10px 0',
                     borderRadius: 10,
                     border: '1.5px solid',
-                    borderColor: extraQuinzena === '2' ? '#2563eb' : '#e2e8f0',
-                    background: extraQuinzena === '2' ? '#eff6ff' : '#fff',
-                    color: extraQuinzena === '2' ? '#2563eb' : '#64748b',
+                    borderColor: extraQuinzena === '2' ? '#2563eb' : 'var(--border)',
+                    background: extraQuinzena === '2' ? '#eff6ff' : 'var(--card-bg)',
+                    color: extraQuinzena === '2' ? '#2563eb' : 'var(--text2)',
                     fontSize: 13,
                     fontWeight: 600,
                     cursor: 'pointer',
@@ -773,7 +773,7 @@ export function DashboardPage() {
                   <button
                     type="button"
                     onClick={handleCancelEditExtra}
-                    style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                    style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--card-bg)', color: 'var(--text2)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
                   >
                     Cancelar
                   </button>
@@ -802,12 +802,12 @@ export function DashboardPage() {
           </div>
 
           {/* Divider */}
-          <div style={{ height: 1, background: '#e2e8f0' }} />
+          <div style={{ height: 1, background: 'var(--border)' }} />
 
           {/* Total preview */}
-          <div style={{ background: '#f1f5f9', borderRadius: 12, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 14, color: '#64748b' }}>Total mensal</span>
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>{formatCurrency(editQ1Num + editQ2Num + totalExtraIncomes)}</span>
+          <div style={{ background: 'var(--bg2)', borderRadius: 12, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 14, color: 'var(--text2)' }}>Total mensal</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: 'var(--text)' }}>{formatCurrency(editQ1Num + editQ2Num + totalExtraIncomes)}</span>
           </div>
 
           <button

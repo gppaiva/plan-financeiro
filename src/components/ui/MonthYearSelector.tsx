@@ -36,7 +36,7 @@ export function MonthYearSelector({ month, year, onChange }: MonthYearSelectorPr
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#94a3b8',
+    color: 'var(--text2)',
   }
 
   return (
@@ -73,7 +73,7 @@ export function MonthYearSelector({ month, year, onChange }: MonthYearSelectorPr
         style={{
           fontSize: 16,
           fontWeight: 600,
-          color: '#1e293b',
+          color: 'var(--text)',
           minWidth: 140,
           textAlign: 'center',
           userSelect: 'none',

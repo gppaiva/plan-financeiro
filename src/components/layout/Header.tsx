@@ -25,12 +25,12 @@ export function Header({ title }: HeaderProps) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        borderBottom: '1px solid #e2e8f0',
-        background: '#fff',
+        borderBottom: '1px solid var(--border)',
+        background: 'var(--card-bg)',
         padding: '14px 20px',
       }}
     >
-      <h1 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
+      <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
         {title}
       </h1>
 
@@ -42,13 +42,13 @@ export function Header({ title }: HeaderProps) {
             width: 36,
             height: 36,
             borderRadius: '50%',
-            background: '#f1f5f9',
+            background: 'var(--bg2)',
             border: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            color: '#64748b',
+            color: 'var(--text2)',
           }}
           aria-label={isDark ? 'Ativar tema claro' : 'Ativar tema escuro'}
         >
@@ -98,13 +98,13 @@ export function Header({ title }: HeaderProps) {
             width: 36,
             height: 36,
             borderRadius: '50%',
-            background: '#f1f5f9',
+            background: 'var(--bg2)',
             border: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
-            color: '#64748b',
+            color: 'var(--text2)',
           }}
           aria-label="Sair"
         >

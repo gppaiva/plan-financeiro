@@ -277,17 +277,17 @@ export function TransactionsPage() {
     display: 'flex',
     alignItems: 'center',
     gap: 12,
-    border: '1.5px solid #e2e8f0',
+    border: '1.5px solid var(--border)',
     borderRadius: 14,
     padding: '14px 16px',
-    background: '#fff',
+    background: 'var(--card-bg)',
   }
   const inputStyle: React.CSSProperties = {
     flex: 1,
     border: 'none',
     outline: 'none',
     fontSize: 15,
-    color: '#1e293b',
+    color: 'var(--text)',
     background: 'transparent',
     width: '100%',
   }
@@ -295,17 +295,17 @@ export function TransactionsPage() {
     display: 'block',
     fontSize: 14,
     fontWeight: 500,
-    color: '#1e293b',
+    color: 'var(--text)',
     marginBottom: 8,
   }
   const selectStyle: React.CSSProperties = {
     width: '100%',
-    border: '1.5px solid #e2e8f0',
+    border: '1.5px solid var(--border)',
     borderRadius: 14,
     padding: '14px 16px',
     fontSize: 15,
-    color: '#1e293b',
-    background: '#fff',
+    color: 'var(--text)',
+    background: 'var(--card-bg)',
     outline: 'none',
     appearance: 'none' as const,
   }
@@ -361,8 +361,8 @@ export function TransactionsPage() {
                 fontWeight: 500,
                 border: 'none',
                 cursor: 'pointer',
-                background: quinzenaFilter === f.value ? '#2563eb' : '#f1f5f9',
-                color: quinzenaFilter === f.value ? '#fff' : '#64748b',
+                background: quinzenaFilter === f.value ? '#2563eb' : 'var(--bg2)',
+                color: quinzenaFilter === f.value ? '#fff' : 'var(--text2)',
                 transition: 'all 0.2s',
                 whiteSpace: 'nowrap',
                 flexShrink: 0,
@@ -375,11 +375,11 @@ export function TransactionsPage() {
 
         {/* Expense list */}
         {loading ? (
-          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
+          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: 'var(--text2)' }}>
             Carregando...
           </p>
         ) : filteredExpenses.length === 0 ? (
-          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
+          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: 'var(--text2)' }}>
             Nenhuma transação encontrada
           </p>
         ) : (
@@ -389,9 +389,9 @@ export function TransactionsPage() {
                 key={expense.id}
                 onClick={() => openEditModal(expense)}
                 style={{
-                  background: '#fff',
+                  background: 'var(--card-bg)',
                   borderRadius: 16,
-                  border: '1px solid #e2e8f0',
+                  border: '1px solid var(--border)',
                   padding: 16,
                   display: 'flex',
                   alignItems: 'flex-start',
@@ -406,7 +406,7 @@ export function TransactionsPage() {
                       width: 40,
                       height: 40,
                       borderRadius: '50%',
-                      background: '#f1f5f9',
+                      background: 'var(--bg2)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -417,22 +417,22 @@ export function TransactionsPage() {
                     {categoryEmojis[expense.categoria] || '📦'}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 14, fontWeight: 500, color: '#1e293b', margin: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', margin: 0 }}>
                       {expense.descricao}
                     </p>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                      <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>
                         {formatDate(expense.data_vencimento)}
                       </span>
-                      <span style={{ fontSize: 12, color: '#cbd5e1' }}>•</span>
-                      <span style={{ fontSize: 12, color: '#94a3b8' }}>
+                      <span style={{ fontSize: 12, color: 'var(--border)' }}>•</span>
+                      <span style={{ fontSize: 12, color: 'var(--text2)' }}>
                         {expense.categoria}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-                  <p style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', margin: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
                     {formatCurrency(expense.valor)}
                   </p>
                   <button
@@ -471,14 +471,14 @@ export function TransactionsPage() {
           <div>
             <label style={labelStyle}>Descrição</label>
             <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               <input type="text" placeholder="Ex: Aluguel" value={editDescricao} onChange={(e) => setEditDescricao(e.target.value)} style={inputStyle} />
             </div>
           </div>
           <div>
             <label style={labelStyle}>Valor</label>
             <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
               <input type="number" placeholder="0,00" value={editValor} onChange={(e) => setEditValor(e.target.value)} style={inputStyle} />
             </div>
           </div>
@@ -494,7 +494,7 @@ export function TransactionsPage() {
               {quinzenaOptions.map((opt) => (<option key={opt.value} value={opt.value}>{opt.label}</option>))}
             </select>
           </div>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: '#334155', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--text)', cursor: 'pointer' }}>
             <input type="checkbox" checked={editRecorrente} onChange={(e) => setEditRecorrente(e.target.checked)} style={{ width: 18, height: 18, accentColor: '#2563eb' }} />
             Despesa fixa (recorrente)
           </label>
@@ -502,7 +502,7 @@ export function TransactionsPage() {
             <div>
               <label style={labelStyle}>Data de vencimento</label>
               <div style={inputWrapStyle}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 <input type="date" value={editDataVencimento} onChange={(e) => setEditDataVencimento(e.target.value)} style={inputStyle} />
               </div>
             </div>
@@ -511,7 +511,7 @@ export function TransactionsPage() {
               <div>
                 <label style={labelStyle}>Dia de vencimento</label>
                 <div style={inputWrapStyle}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   <select value={editDiaVencimento} onChange={(e) => setEditDiaVencimento(e.target.value)} style={{ ...inputStyle, appearance: 'none' as const }}>
                     {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
                       <option key={d} value={String(d)}>Dia {d}</option>
@@ -522,10 +522,10 @@ export function TransactionsPage() {
               <div>
                 <label style={labelStyle}>Data final (quando parar)</label>
                 <div style={inputWrapStyle}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   <input type="date" value={editDataFinal} onChange={(e) => setEditDataFinal(e.target.value)} style={inputStyle} />
                 </div>
-                <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Deixe vazio para sem data final</p>
+                <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>Deixe vazio para sem data final</p>
               </div>
             </>
           )}
@@ -582,7 +582,7 @@ export function TransactionsPage() {
           <div>
             <label style={labelStyle}>Descrição</label>
             <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               <input
                 type="text"
                 placeholder="Ex: Aluguel"
@@ -596,7 +596,7 @@ export function TransactionsPage() {
           <div>
             <label style={labelStyle}>Valor</label>
             <div style={inputWrapStyle}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
               <input
                 type="number"
                 placeholder="0,00"
@@ -626,7 +626,7 @@ export function TransactionsPage() {
               alignItems: 'center',
               gap: 10,
               fontSize: 14,
-              color: '#334155',
+              color: 'var(--text)',
               cursor: 'pointer',
             }}
           >
@@ -643,7 +643,7 @@ export function TransactionsPage() {
             <div>
               <label style={labelStyle}>Data de vencimento</label>
               <div style={inputWrapStyle}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 <input
                   type="date"
                   value={dataVencimento}
@@ -657,7 +657,7 @@ export function TransactionsPage() {
               <div>
                 <label style={labelStyle}>Dia de vencimento</label>
                 <div style={inputWrapStyle}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   <select
                     value={diaVencimento}
                     onChange={(e) => setDiaVencimento(e.target.value)}
@@ -672,7 +672,7 @@ export function TransactionsPage() {
               <div>
                 <label style={labelStyle}>Data final (quando parar)</label>
                 <div style={inputWrapStyle}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   <input
                     type="date"
                     value={dataFinal}
@@ -681,7 +681,7 @@ export function TransactionsPage() {
                     placeholder="Opcional"
                   />
                 </div>
-                <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 4 }}>Deixe vazio para sem data final</p>
+                <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>Deixe vazio para sem data final</p>
               </div>
             </>
           )}
@@ -715,7 +715,7 @@ export function TransactionsPage() {
         title="Escopo da Alteração"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <p style={{ fontSize: 14, color: '#64748b', margin: 0 }}>
+          <p style={{ fontSize: 14, color: 'var(--text2)', margin: 0 }}>
             Esta é uma despesa recorrente. Como deseja aplicar a alteração?
           </p>
           <button
@@ -726,9 +726,9 @@ export function TransactionsPage() {
               width: '100%',
               padding: '14px 0',
               borderRadius: 14,
-              border: '1.5px solid #e2e8f0',
-              background: '#fff',
-              color: '#64748b',
+              border: '1.5px solid var(--border)',
+              background: 'var(--card-bg)',
+              color: 'var(--text2)',
               fontSize: 15,
               fontWeight: 600,
               cursor: scopeLoading ? 'not-allowed' : 'pointer',
@@ -765,7 +765,7 @@ export function TransactionsPage() {
               padding: '12px 0',
               border: 'none',
               background: 'none',
-              color: '#94a3b8',
+              color: 'var(--text2)',
               fontSize: 14,
               fontWeight: 500,
               cursor: 'pointer',
