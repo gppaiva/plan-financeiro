@@ -115,6 +115,17 @@ export interface ExpenseOverride {
   created_at: string
 }
 
+export interface InvoiceItem {
+  id: string
+  expense_id: string
+  data_compra: string
+  descricao: string
+  categoria_c6: string
+  parcela: string
+  valor: number
+  created_at: string
+}
+
 export type EditScope = 'only_this_month' | 'this_and_future'
 
 // ── Result Types ─────────────────────────────────────────────────────

@@ -143,3 +143,15 @@ Ao iniciar nova sessão, pedir para ler:
 - Username salvo no cadastro (auth metadata + user_profiles.username)
 - Migration 009: coluna `username` (UNIQUE) + função RPC pública
 - Onboarding salva username do metadata no perfil
+
+### 16. Importação de Fatura de Cartão de Crédito (Fase 1 — CSV C6)
+- Botão "Cadastrar Fatura" na aba de despesas
+- Upload de CSV ou ZIP (extrai CSV de dentro via JSZip)
+- Parser C6: separador `;`, datas DD/MM/YYYY, exclui valores negativos
+- Cria UMA despesa "Cartão" com total + itens individuais na tabela `invoice_items`
+- Ao clicar na despesa "Cartão", abre detalhe com lista de itens
+- Edição inline de valores individuais com recálculo do total
+- Migration 010: tabela `invoice_items` com FK CASCADE, RLS, índices
+- Arquivos: invoice-csv-parser.ts, invoice.schema.ts, invoice.service.ts, InvoiceImportModal.tsx, InvoiceDetailModal.tsx
+- Dependência: JSZip para extração de ZIP
+- Fase 2 (futura): parsing de PDF (Bradesco + C6) com suporte a senha

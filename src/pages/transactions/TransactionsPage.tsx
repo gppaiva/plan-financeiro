@@ -11,6 +11,9 @@ import { formatCurrency, formatDate } from '../../lib/format'
 import { isMensal } from '../../lib/quinzena'
 import { EXPENSE_CATEGORIES } from '../../types'
 import type { Expense, EditScope } from '../../types'
+import { hasInvoiceItems } from '../../services/invoice.service'
+import { InvoiceImportModal } from './InvoiceImportModal'
+import { InvoiceDetailModal } from './InvoiceDetailModal'
 
 const categoryEmojis: Record<string, string> = {
   'Alimentação': '🍔',
@@ -37,6 +40,12 @@ export function TransactionsPage() {
 
   // Quinzena filter
   const [quinzenaFilter, setQuinzenaFilter] = useState<'all' | '1' | '2'>('all')
+
+  // Invoice modal states
+  const [showInvoiceImportModal, setShowInvoiceImportModal] = useState(false)
+  const [showInvoiceDetailModal, setShowInvoiceDetailModal] = useState(false)
+  const [invoiceDetailExpense, setInvoiceDetailExpense] = useState<Expense | null>(null)
+  const [invoiceExpenseIds, setInvoiceExpenseIds] = useState<Set<string>>(new Set())
 
   // Scope modal state for recurring expense edits
   const [showScopeModal, setShowScopeModal] = useState(false)
@@ -103,7 +112,23 @@ export function TransactionsPage() {
 
   useEffect(() => {
     if (profileId) {
-      fetchExpenses(profileId, { month: selectedMonth, year: selectedYear })
+      fetchExpenses(profileId, { month: selectedMonth, year: selectedYear }).then(() => {
+        // Populate invoice items cache for "Cartão" expenses
+        const currentExpenses = useExpensesStore.getState().expenses
+        const cartaoExpenses = currentExpenses.filter((e) => e.categoria === 'Cartão')
+        if (cartaoExpenses.length > 0) {
+          Promise.all(
+            cartaoExpenses.map(async (e) => {
+              const has = await hasInvoiceItems(e.id)
+              return has ? e.id : null
+            }),
+          ).then((ids) => {
+            setInvoiceExpenseIds(new Set(ids.filter((id): id is string => id !== null)))
+          })
+        } else {
+          setInvoiceExpenseIds(new Set())
+        }
+      })
     }
   }, [profileId, selectedMonth, selectedYear, fetchExpenses])
 
@@ -124,6 +149,13 @@ export function TransactionsPage() {
   }, [profile])
 
   const openEditModal = useCallback((expense: Expense) => {
+    // If it's a "Cartão" expense with invoice items, open detail modal instead
+    if (expense.categoria === 'Cartão' && invoiceExpenseIds.has(expense.id)) {
+      setInvoiceDetailExpense(expense)
+      setShowInvoiceDetailModal(true)
+      return
+    }
+
     setEditingExpenseId(expense.id)
     setEditDescricao(expense.descricao)
     setEditValor(String(expense.valor))
@@ -134,7 +166,7 @@ export function TransactionsPage() {
     setEditDiaVencimento(expense.data_vencimento ? expense.data_vencimento.split('-')[2]?.replace(/^0/, '') || '10' : '10')
     setEditDataFinal(expense.data_final || '')
     setShowEditModal(true)
-  }, [])
+  }, [invoiceExpenseIds])
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -350,6 +382,29 @@ export function TransactionsPage() {
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
           Adicionar
+        </button>
+
+        {/* Invoice import button */}
+        <button
+          onClick={() => setShowInvoiceImportModal(true)}
+          style={{
+            width: '100%',
+            padding: '14px 0',
+            borderRadius: 14,
+            border: '1.5px solid #2563eb',
+            background: 'transparent',
+            color: '#2563eb',
+            fontSize: 15,
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+        >
+          💳
+          Cadastrar Fatura
         </button>
 
         {/* Quinzena filter pills */}
@@ -785,6 +840,39 @@ export function TransactionsPage() {
           </button>
         </div>
       </Modal>
+
+      {/* Invoice Import Modal */}
+      {profileId && (
+        <InvoiceImportModal
+          isOpen={showInvoiceImportModal}
+          onClose={() => setShowInvoiceImportModal(false)}
+          onSuccess={() => {
+            if (profileId) {
+              fetchExpenses(profileId, { month: selectedMonth, year: selectedYear })
+            }
+          }}
+          profileId={profileId}
+          cicloTipo={profile?.ciclo_tipo || '15_ultimo'}
+        />
+      )}
+
+      {/* Invoice Detail Modal */}
+      {invoiceDetailExpense && (
+        <InvoiceDetailModal
+          isOpen={showInvoiceDetailModal}
+          onClose={() => {
+            setShowInvoiceDetailModal(false)
+            setInvoiceDetailExpense(null)
+          }}
+          expense={invoiceDetailExpense}
+          onExpenseUpdated={(updated) => {
+            useExpensesStore.setState((state) => ({
+              expenses: state.expenses.map((e) => (e.id === updated.id ? updated : e)),
+            }))
+            setInvoiceDetailExpense(updated)
+          }}
+        />
+      )}
     </PageContainer>
   )
 }
