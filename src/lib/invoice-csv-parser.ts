@@ -149,7 +149,16 @@ export function prettyPrintC6Csv(items: C6InvoiceItem[]): string {
  * Looks for the first .csv file inside the ZIP.
  */
 export async function extractCsvFromZip(zipData: ArrayBuffer): Promise<string> {
-  const zip = await JSZip.loadAsync(zipData)
+  let zip
+  try {
+    zip = await JSZip.loadAsync(zipData)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : ''
+    if (msg.toLowerCase().includes('encrypted') || msg.toLowerCase().includes('password')) {
+      throw new Error('O arquivo ZIP está protegido com senha. Por favor, descompacte o ZIP manualmente e envie o arquivo CSV diretamente.')
+    }
+    throw new Error('Erro ao abrir o arquivo ZIP. Verifique se o arquivo não está corrompido.')
+  }
 
   const csvFileName = Object.keys(zip.files).find((name) =>
     name.toLowerCase().endsWith('.csv'),
