@@ -6,6 +6,11 @@ import {
   signUpWithEmail,
 } from '../../services/auth.service'
 import { hasCompletedOnboarding } from '../../services/profile.service'
+import {
+  isBiometricAvailable,
+  isBiometricEnabled,
+  enableBiometric,
+} from '../../lib/biometric'
 import logo from '../../assets/logologinNew.png'
 
 type AuthMode = 'login' | 'register'
@@ -40,6 +45,21 @@ export function AuthPage() {
         const result = await signInWithEmail(email, password)
         if (result.error) { showToast('E-mail ou senha inválidos', 'error'); return }
         if (result.user) {
+          // Offer biometric setup if available but not yet enabled
+          if (isBiometricAvailable() && !isBiometricEnabled()) {
+            const wantsBiometric = window.confirm(
+              'Deseja ativar desbloqueio por biometria (Face ID / Touch ID)?',
+            )
+            if (wantsBiometric) {
+              const ok = await enableBiometric()
+              if (ok) {
+                showToast('Biometria ativada!', 'success')
+              } else {
+                showToast('Não foi possível ativar biometria', 'error')
+              }
+            }
+          }
+
           const completed = await hasCompletedOnboarding(result.user.id)
           navigate(completed ? '/dashboard' : '/onboarding')
         }

@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { useThemeStore } from '../../stores/theme.store'
 import { signOut } from '../../services/auth.service'
 import { APP_VERSION } from '../../version'
+import {
+  isBiometricAvailable,
+  isBiometricEnabled,
+  enableBiometric,
+  disableBiometric,
+} from '../../lib/biometric'
 import logo from '../../assets/logoapenasNew.png'
 
 interface HeaderProps {
@@ -11,6 +17,7 @@ interface HeaderProps {
 export function Header({ title }: HeaderProps) {
   const { isDark, toggle } = useThemeStore()
   const [showMenu, setShowMenu] = useState(false)
+  const [biometricOn, setBiometricOn] = useState(() => isBiometricEnabled())
 
   const handleLogout = async () => {
     setShowMenu(false)
@@ -182,6 +189,47 @@ export function Header({ title }: HeaderProps) {
                 </svg>
                 Sobre
               </button>
+
+              {/* Biometric toggle — only show if device supports it */}
+              {isBiometricAvailable() && (
+                <button
+                  onClick={async () => {
+                    if (biometricOn) {
+                      disableBiometric()
+                      setBiometricOn(false)
+                    } else {
+                      const ok = await enableBiometric()
+                      setBiometricOn(ok)
+                    }
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    padding: '14px 20px',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: 15,
+                    fontWeight: 500,
+                    color: 'var(--text)',
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18.9 7a8 8 0 0 0-2.2-2.5" />
+                    <path d="M3.9 12a8 8 0 0 1 1.2-4.3" />
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74A9 9 0 0 0 3 12" />
+                    <path d="M12 12a3 3 0 0 0-3 3v1" />
+                    <path d="M12 3a9 9 0 0 1 9 9" />
+                    <path d="M12 7a5 5 0 0 1 5 5v1" />
+                    <path d="M12 7a5 5 0 0 0-5 5v4" />
+                    <path d="M9 18a3 3 0 0 0 6 0v-3" />
+                  </svg>
+                  {biometricOn ? 'Desativar biometria' : 'Ativar biometria'}
+                </button>
+              )}
 
               <div style={{ flex: 1 }} />
 

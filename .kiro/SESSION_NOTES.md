@@ -121,3 +121,13 @@ Ao iniciar nova sessão, pedir para ler:
 2. `.kiro/specs/financial-planner/tasks.md` — estado geral do projeto
 3. `src/version.ts` — versão atual
 4. `package.json` — dependências e scripts
+
+### 13. Autenticação Biométrica (WebAuthn)
+- Desbloqueio por Face ID / Touch ID / Windows Hello
+- Após primeiro login, pergunta se quer ativar biometria
+- Nas próximas aberturas, mostra tela de desbloqueio biométrico
+- Fallback "Usar senha" faz logout e volta pro login normal
+- Toggle no menu lateral (engrenagem) para ativar/desativar
+- Arquivo: `src/lib/biometric.ts` (serviço WebAuthn)
+- Lock screen no `App.tsx` (BiometricLockScreen component)
+- Requer HTTPS em produção (funciona em localhost para dev)
