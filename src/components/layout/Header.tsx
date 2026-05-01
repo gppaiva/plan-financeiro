@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useThemeStore } from '../../stores/theme.store'
 import { signOut } from '../../services/auth.service'
+import { APP_VERSION } from '../../version'
 import logo from '../../assets/logoapenasNew.png'
 
 interface HeaderProps {
@@ -157,7 +158,7 @@ export function Header({ title }: HeaderProps) {
               <button
                 onClick={() => {
                   setShowMenu(false)
-                  alert('Plan Financeiro v1.0\n\nPlaneje hoje, conquiste amanhã.\n\nDesenvolvido por Gustavo Paiva')
+                  alert(`Plan Financeiro v${APP_VERSION}\n\nPlaneje hoje, conquiste amanhã.\n\nDesenvolvido por Gustavo Paiva`)
                 }}
                 style={{
                   display: 'flex',

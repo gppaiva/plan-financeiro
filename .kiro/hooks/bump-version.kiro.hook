@@ -1,0 +1,16 @@
+{
+  "enabled": true,
+  "name": "Bump Version",
+  "description": "Automatically increments the patch version (1.0.x) in src/version.ts and package.json before pushing to git. Run the bump script, stage the version files, and amend the last commit.",
+  "version": "1",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": [
+      "shell"
+    ]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "If the shell command being executed contains 'git push', first run 'node scripts/bump-version.js' to increment the version, then stage the version files with 'git add src/version.ts package.json', and amend the last commit with 'git commit --amend --no-edit'. Then proceed with the original push command."
+  }
+}
