@@ -25,7 +25,7 @@ const categoryEmojis: Record<string, string> = {
 
 export function TransactionsPage() {
   const { profile, profileId } = useProfile()
-  const { expenses, loading, fetchExpenses, addExpense, updateExpense, toggleExpenseStatus, removeExpense } =
+  const { expenses, loading, fetchExpenses, addExpense, toggleExpenseStatus, removeExpense } =
     useExpensesStore()
   const { showToast } = useToast()
   const [showModal, setShowModal] = useState(false)
