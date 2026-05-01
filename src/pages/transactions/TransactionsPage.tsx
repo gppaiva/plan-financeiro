@@ -148,12 +148,19 @@ export function TransactionsPage() {
     ]
   }, [profile])
 
-  const openEditModal = useCallback((expense: Expense) => {
-    // If it's a "Cartão" expense with invoice items, open detail modal instead
-    if (expense.categoria === 'Cartão' && invoiceExpenseIds.has(expense.id)) {
-      setInvoiceDetailExpense(expense)
-      setShowInvoiceDetailModal(true)
-      return
+  const openEditModal = useCallback(async (expense: Expense) => {
+    // If it's a "Cartão" expense, check if it has invoice items
+    if (expense.categoria === 'Cartão') {
+      try {
+        const has = await hasInvoiceItems(expense.id)
+        if (has) {
+          setInvoiceDetailExpense(expense)
+          setShowInvoiceDetailModal(true)
+          return
+        }
+      } catch {
+        // If check fails, fall through to normal edit
+      }
     }
 
     setEditingExpenseId(expense.id)
@@ -166,7 +173,7 @@ export function TransactionsPage() {
     setEditDiaVencimento(expense.data_vencimento ? expense.data_vencimento.split('-')[2]?.replace(/^0/, '') || '10' : '10')
     setEditDataFinal(expense.data_final || '')
     setShowEditModal(true)
-  }, [invoiceExpenseIds])
+  }, [])
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
