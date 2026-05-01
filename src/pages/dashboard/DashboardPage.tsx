@@ -194,10 +194,18 @@ export function DashboardPage() {
   const paidTotal = useMemo(() => calculatePaidTotal(filteredExpenses), [filteredExpenses])
   const pendingTotal = useMemo(() => calculatePendingTotal(filteredExpenses), [filteredExpenses])
 
-  const income = profile?.salario_liquido ?? 0
+  const incomeTotal = profile?.salario_liquido ?? 0
+  const income = useMemo(() => {
+    if (quinzenaFilter === '1') return profile?.quinzena_1_valor ?? 0
+    if (quinzenaFilter === '2') return profile?.quinzena_2_valor ?? 0
+    return incomeTotal
+  }, [quinzenaFilter, profile, incomeTotal])
   const totalExtraIncomes = useMemo(
-    () => extraIncomes.reduce((sum, e) => sum + e.valor, 0),
-    [extraIncomes],
+    () => {
+      if (quinzenaFilter === 'all') return extraIncomes.reduce((sum, e) => sum + e.valor, 0)
+      return extraIncomes.filter((e) => e.quinzena === quinzenaFilter).reduce((sum, e) => sum + e.valor, 0)
+    },
+    [extraIncomes, quinzenaFilter],
   )
   const saldoReal = income + totalExtraIncomes - totalExpenses
 
