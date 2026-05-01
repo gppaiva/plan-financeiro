@@ -33,6 +33,9 @@ export function TransactionsPage() {
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // Quinzena filter
+  const [quinzenaFilter, setQuinzenaFilter] = useState<'all' | '1' | '2'>('all')
+
   // Scope modal state for recurring expense edits
   const [showScopeModal, setShowScopeModal] = useState(false)
   const [pendingEditData, setPendingEditData] = useState<{
@@ -101,6 +104,22 @@ export function TransactionsPage() {
       fetchExpenses(profileId, { month: selectedMonth, year: selectedYear })
     }
   }, [profileId, selectedMonth, selectedYear, fetchExpenses])
+
+  const filteredExpenses = useMemo(() => {
+    if (quinzenaFilter === 'all') return expenses
+    return expenses.filter((e) => e.quinzena === quinzenaFilter)
+  }, [expenses, quinzenaFilter])
+
+  const quinzenaFilters = useMemo(() => {
+    const ciclo = profile?.ciclo_tipo || '15_ultimo'
+    const q1 = ciclo === '5_20' ? '5º dia útil' : 'Dia 15'
+    const q2 = ciclo === '5_20' ? 'Dia 20' : 'Último dia útil'
+    return [
+      { label: 'Todas', value: 'all' as const },
+      { label: q1, value: '1' as const },
+      { label: q2, value: '2' as const },
+    ]
+  }, [profile])
 
   const openEditModal = useCallback((expense: Expense) => {
     setEditingExpenseId(expense.id)
@@ -329,18 +348,43 @@ export function TransactionsPage() {
           Adicionar
         </button>
 
+        {/* Quinzena filter pills */}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+          {quinzenaFilters.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setQuinzenaFilter(f.value)}
+              style={{
+                borderRadius: 20,
+                padding: '8px 14px',
+                fontSize: 13,
+                fontWeight: 500,
+                border: 'none',
+                cursor: 'pointer',
+                background: quinzenaFilter === f.value ? '#2563eb' : '#f1f5f9',
+                color: quinzenaFilter === f.value ? '#fff' : '#64748b',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
         {/* Expense list */}
         {loading ? (
           <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
             Carregando...
           </p>
-        ) : expenses.length === 0 ? (
+        ) : filteredExpenses.length === 0 ? (
           <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
             Nenhuma transação encontrada
           </p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {expenses.map((expense) => (
+            {filteredExpenses.map((expense) => (
               <div
                 key={expense.id}
                 onClick={() => openEditModal(expense)}
