@@ -9,7 +9,7 @@ export const extraIncomeSchema = z.object({
     .number()
     .positive('Valor deve ser positivo'),
   quinzena: z
-    .enum(['1', '2'], { required_error: 'Selecione uma quinzena' }),
+    .enum(['1', '2'], { message: 'Selecione uma quinzena' }),
 })
 
 export type ExtraIncomeFormData = z.infer<typeof extraIncomeSchema>
