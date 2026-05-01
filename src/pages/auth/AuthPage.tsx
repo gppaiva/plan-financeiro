@@ -100,6 +100,34 @@ export function AuthPage() {
           ))}
         </div>
 
+        {/* Install shortcut link */}
+        <button
+          type="button"
+          onClick={() => setShowInstall(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+            width: '100%',
+            padding: '10px 0',
+            marginBottom: 20,
+            background: 'none',
+            border: '1px dashed var(--border)',
+            borderRadius: 12,
+            cursor: 'pointer',
+            fontSize: 13,
+            color: '#2563eb',
+            fontWeight: 500,
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+            <line x1="12" y1="18" x2="12.01" y2="18" />
+          </svg>
+          Instalar no celular
+        </button>
+
         <form onSubmit={handleSubmit}>
           {/* Nome Completo (register) */}
           {mode === 'register' && (
@@ -173,33 +201,6 @@ export function AuthPage() {
         <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text2)', marginTop: 32 }}>
           Ao continuar, você concorda com nossos Termos de Uso
         </p>
-
-        {/* Install shortcut link */}
-        <button
-          type="button"
-          onClick={() => setShowInstall(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            width: '100%',
-            padding: '12px 0',
-            marginTop: 16,
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            fontSize: 13,
-            color: '#2563eb',
-            fontWeight: 500,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-            <line x1="12" y1="18" x2="12.01" y2="18" />
-          </svg>
-          Instalar no celular
-        </button>
       </div>
 
       {/* Install instructions modal */}
