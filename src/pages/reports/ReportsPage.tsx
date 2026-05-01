@@ -55,11 +55,11 @@ export function ReportsPage() {
 
   const selectStyle: React.CSSProperties = {
     borderRadius: 12,
-    border: '1px solid #e2e8f0',
+    border: '1px solid var(--border)',
     padding: '10px 14px',
     fontSize: 14,
-    color: '#1e293b',
-    background: '#fff',
+    color: 'var(--text)',
+    background: 'var(--card-bg)',
     outline: 'none',
     appearance: 'none' as const,
   }
@@ -98,13 +98,13 @@ export function ReportsPage() {
         {/* Category Pie Chart */}
         <div
           style={{
-            background: '#fff',
+            background: 'var(--card-bg)',
             borderRadius: 20,
             padding: 20,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
           }}
         >
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', margin: '0 0 14px' }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: '0 0 14px' }}>
             Despesas por Categoria
           </h2>
           <CategoryPieChart data={categoryBreakdown} />
@@ -113,13 +113,13 @@ export function ReportsPage() {
         {/* Monthly Evolution Chart */}
         <div
           style={{
-            background: '#fff',
+            background: 'var(--card-bg)',
             borderRadius: 20,
             padding: 20,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
           }}
         >
-          <h2 style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', margin: '0 0 14px' }}>
+          <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: '0 0 14px' }}>
             Evolução Mensal
           </h2>
           <MonthlyEvolutionChart data={evolutionData} />
@@ -128,7 +128,7 @@ export function ReportsPage() {
         {/* Category percentage list */}
         <div
           style={{
-            background: '#fff',
+            background: 'var(--card-bg)',
             borderRadius: 16,
             overflow: 'hidden',
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
@@ -137,15 +137,15 @@ export function ReportsPage() {
           <div
             style={{
               padding: '16px 20px',
-              borderBottom: '1px solid #e2e8f0',
+              borderBottom: '1px solid var(--border)',
             }}
           >
-            <h2 style={{ fontSize: 14, fontWeight: 600, color: '#1e293b', margin: 0 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
               Detalhamento por Categoria
             </h2>
           </div>
           {categoryBreakdown.length === 0 ? (
-            <p style={{ padding: '24px 20px', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
+            <p style={{ padding: '24px 20px', textAlign: 'center', fontSize: 14, color: 'var(--text2)' }}>
               Nenhum dado disponível
             </p>
           ) : (
@@ -157,17 +157,17 @@ export function ReportsPage() {
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   padding: '14px 20px',
-                  borderBottom: index < categoryBreakdown.length - 1 ? '1px solid #f1f5f9' : 'none',
+                  borderBottom: index < categoryBreakdown.length - 1 ? '1px solid var(--border)' : 'none',
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 14, color: '#334155', margin: 0 }}>{item.categoria}</p>
+                  <p style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>{item.categoria}</p>
                   <div
                     style={{
                       marginTop: 8,
                       height: 6,
                       borderRadius: 3,
-                      background: '#e2e8f0',
+                      background: 'var(--border)',
                       overflow: 'hidden',
                     }}
                   >
@@ -183,10 +183,10 @@ export function ReportsPage() {
                   </div>
                 </div>
                 <div style={{ marginLeft: 16, textAlign: 'right', flexShrink: 0 }}>
-                  <p style={{ fontSize: 14, fontWeight: 500, color: '#1e293b', margin: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', margin: 0 }}>
                     {formatCurrency(item.total)}
                   </p>
-                  <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 2, margin: '2px 0 0' }}>
+                  <p style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, margin: '2px 0 0' }}>
                     {item.percentual.toFixed(1)}%
                   </p>
                 </div>

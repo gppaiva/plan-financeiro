@@ -117,15 +117,15 @@ export function ThirdPartyPage() {
     try { await toggleStatus(id) } catch { showToast('Erro ao atualizar status', 'error') }
   }
 
-  const iw: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e2e8f0', borderRadius: 14, padding: '14px 16px', background: '#fff' }
-  const is: React.CSSProperties = { flex: 1, border: 'none', outline: 'none', fontSize: 15, color: '#1e293b', background: 'transparent', width: '100%' }
-  const ls: React.CSSProperties = { display: 'block', fontSize: 14, fontWeight: 500, color: '#1e293b', marginBottom: 8 }
+  const iw: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--card-bg)' }
+  const is: React.CSSProperties = { flex: 1, border: 'none', outline: 'none', fontSize: 15, color: 'var(--text)', background: 'transparent', width: '100%' }
+  const ls: React.CSSProperties = { display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }
   const btnBlue: React.CSSProperties = { width: '100%', padding: '16px 0', borderRadius: 14, border: 'none', background: '#2563eb', color: '#fff', fontSize: 15, fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1, boxShadow: '0 4px 14px rgba(37,99,235,0.3)' }
 
-  const personIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-  const editIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-  const dollarIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-  const calIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+  const personIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+  const editIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+  const dollarIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+  const calIcon = <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
 
   return (
     <PageContainer>
@@ -138,43 +138,43 @@ export function ThirdPartyPage() {
         </button>
 
         {grandTotal > 0 && (
-          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #e2e8f0', padding: 16 }}>
-            <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>Total com Terceiros</p>
+          <div style={{ background: 'var(--card-bg)', borderRadius: 16, border: '1px solid var(--border)', padding: 16 }}>
+            <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0 }}>Total com Terceiros</p>
             <p style={{ fontSize: 20, fontWeight: 600, color: '#ea580c', margin: '6px 0 0' }}>{formatCurrency(grandTotal)}</p>
           </div>
         )}
 
         {loading ? (
-          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>Carregando...</p>
+          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: 'var(--text2)' }}>Carregando...</p>
         ) : groupedByPerson.size === 0 ? (
-          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>Nenhuma despesa com terceiros</p>
+          <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: 'var(--text2)' }}>Nenhuma despesa com terceiros</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {Array.from(groupedByPerson.entries()).map(([personName, items]) => {
               const personTotal = items.reduce((sum, e) => sum + e.valor, 0)
               return (
-                <div key={personName} style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottom: '1px solid #f1f5f9' }}>
+                <div key={personName} style={{ background: 'var(--card-bg)', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottom: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: '#2563eb' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: '#2563eb' }}>
                         {personName.charAt(0).toUpperCase()}
                       </div>
-                      <p style={{ fontSize: 15, fontWeight: 600, color: '#1e293b', margin: 0 }}>{personName}</p>
+                      <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{personName}</p>
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>{formatCurrency(personTotal)}</span>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{formatCurrency(personTotal)}</span>
                   </div>
                   {items.map((expense) => (
                     <div
                       key={expense.id}
                       onClick={() => openEditModal(expense)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
                     >
                       <div>
-                        <p style={{ fontSize: 14, color: '#334155', margin: 0 }}>{expense.descricao}</p>
-                        <p style={{ fontSize: 12, color: '#94a3b8', margin: '2px 0 0' }}>{formatDate(expense.data_vencimento)}</p>
+                        <p style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>{expense.descricao}</p>
+                        <p style={{ fontSize: 12, color: 'var(--text2)', margin: '2px 0 0' }}>{formatDate(expense.data_vencimento)}</p>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <span style={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>{formatCurrency(expense.valor)}</span>
+                        <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{formatCurrency(expense.valor)}</span>
                         <button
                           onClick={(e) => { e.stopPropagation(); handleToggle(expense.id) }}
                           style={{ borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 500, border: 'none', cursor: 'pointer', background: expense.status === 'paid' ? 'rgba(22,163,74,0.1)' : 'rgba(234,88,12,0.1)', color: expense.status === 'paid' ? '#16a34a' : '#ea580c' }}

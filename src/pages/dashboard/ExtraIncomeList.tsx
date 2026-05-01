@@ -12,7 +12,7 @@ export function ExtraIncomeList({ incomes, onEdit, onDelete }: ExtraIncomeListPr
 
   if (incomes.length === 0) {
     return (
-      <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: '#94a3b8' }}>
+      <p style={{ padding: '32px 0', textAlign: 'center', fontSize: 14, color: 'var(--text2)' }}>
         Nenhum ganho extra cadastrado
       </p>
     )
@@ -28,13 +28,13 @@ export function ExtraIncomeList({ incomes, onEdit, onDelete }: ExtraIncomeListPr
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '14px 16px',
-            background: '#fff',
+            background: 'var(--card-bg)',
             borderRadius: 14,
-            border: '1px solid #e2e8f0',
+            border: '1px solid var(--border)',
           }}
         >
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 14, color: '#334155', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {income.descricao}
             </p>
             <p style={{ fontSize: 15, fontWeight: 600, color: '#16a34a', margin: '4px 0 0' }}>
@@ -64,7 +64,7 @@ export function ExtraIncomeList({ incomes, onEdit, onDelete }: ExtraIncomeListPr
                 height="16"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#64748b"
+                stroke="var(--text2)"
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -115,12 +115,12 @@ export function ExtraIncomeList({ incomes, onEdit, onDelete }: ExtraIncomeListPr
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '12px 16px',
-          background: '#f1f5f9',
+          background: 'var(--bg2)',
           borderRadius: 12,
           marginTop: 4,
         }}
       >
-        <span style={{ fontSize: 14, fontWeight: 500, color: '#64748b' }}>
+        <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text2)' }}>
           Total de extras
         </span>
         <span style={{ fontSize: 16, fontWeight: 600, color: '#16a34a' }}>
