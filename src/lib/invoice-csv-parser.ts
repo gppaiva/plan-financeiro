@@ -1,4 +1,4 @@
-import JSZip from 'jszip'
+import { BlobReader, ZipReader, TextWriter } from '@zip.js/zip.js'
 
 /** Represents an item extracted from a C6 CSV */
 export interface C6InvoiceItem {
@@ -145,31 +145,46 @@ export function prettyPrintC6Csv(items: C6InvoiceItem[]): string {
 }
 
 /**
- * Extracts CSV content from a ZIP file using JSZip.
+ * Extracts CSV content from a ZIP file using @zip.js/zip.js.
+ * Supports password-protected ZIPs.
  * Looks for the first .csv file inside the ZIP.
  */
-export async function extractCsvFromZip(zipData: ArrayBuffer): Promise<string> {
-  let zip
+export async function extractCsvFromZip(zipData: ArrayBuffer, password?: string): Promise<string> {
   try {
-    zip = await JSZip.loadAsync(zipData)
+    const blob = new Blob([zipData])
+    const reader = new ZipReader(new BlobReader(blob), { password: password || undefined })
+    const entries = await reader.getEntries()
+    
+    const csvEntry = entries.find((entry) => 
+      entry.filename.toLowerCase().endsWith('.csv')
+    )
+    
+    if (!csvEntry) {
+      await reader.close()
+      throw new Error('Nenhum arquivo CSV encontrado no ZIP')
+    }
+    
+    if (!csvEntry.getData) {
+      await reader.close()
+      throw new Error('Não foi possível ler o arquivo CSV do ZIP')
+    }
+    
+    const csvContent = await csvEntry.getData(new TextWriter())
+    await reader.close()
+    return csvContent
   } catch (err) {
     const msg = err instanceof Error ? err.message : ''
-    if (msg.toLowerCase().includes('encrypted') || msg.toLowerCase().includes('password')) {
-      throw new Error('O arquivo ZIP está protegido com senha. Por favor, descompacte o ZIP manualmente e envie o arquivo CSV diretamente.')
+    if (msg.includes('password') || msg.includes('encrypted') || msg.includes('Invalid signature')) {
+      if (password) {
+        throw new Error('Senha incorreta. Verifique e tente novamente.')
+      }
+      throw new Error('ZIP_NEEDS_PASSWORD')
+    }
+    if (msg === 'Nenhum arquivo CSV encontrado no ZIP' || msg === 'Não foi possível ler o arquivo CSV do ZIP') {
+      throw err
     }
     throw new Error('Erro ao abrir o arquivo ZIP. Verifique se o arquivo não está corrompido.')
   }
-
-  const csvFileName = Object.keys(zip.files).find((name) =>
-    name.toLowerCase().endsWith('.csv'),
-  )
-
-  if (!csvFileName) {
-    throw new Error('Nenhum arquivo CSV encontrado no ZIP')
-  }
-
-  const csvContent = await zip.files[csvFileName].async('string')
-  return csvContent
 }
 
 /** Parses a string with comma decimal separator to a number */

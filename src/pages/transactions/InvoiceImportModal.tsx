@@ -31,6 +31,9 @@ export function InvoiceImportModal({
   const [quinzena, setQuinzena] = useState('1')
   const [submitting, setSubmitting] = useState(false)
   const [fileName, setFileName] = useState<string | null>(null)
+  const [zipPassword, setZipPassword] = useState('')
+  const [needsPassword, setNeedsPassword] = useState(false)
+  const [zipArrayBuffer, setZipArrayBuffer] = useState<ArrayBuffer | null>(null)
 
   const quinzenaOptions = useMemo(() => {
     if (cicloTipo === '5_20') {
@@ -52,6 +55,9 @@ export function InvoiceImportModal({
     setParseResult(null)
     setParseError(null)
     setFileName(file.name)
+    setNeedsPassword(false)
+    setZipPassword('')
+    setZipArrayBuffer(null)
 
     const ext = file.name.split('.').pop()?.toLowerCase()
 
@@ -65,6 +71,7 @@ export function InvoiceImportModal({
 
       if (ext === 'zip') {
         const arrayBuffer = await file.arrayBuffer()
+        setZipArrayBuffer(arrayBuffer)
         csvContent = await extractCsvFromZip(arrayBuffer)
       } else {
         csvContent = await file.text()
@@ -80,11 +87,30 @@ export function InvoiceImportModal({
       setParseResult(outcome.data)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao processar arquivo'
+      if (message === 'ZIP_NEEDS_PASSWORD') {
+        setNeedsPassword(true)
+        return
+      }
       setParseError(message)
     }
   }
 
   const canSubmit = parseResult && dataVencimento && !submitting
+
+  const handleUnlockZip = async () => {
+    if (!zipArrayBuffer || !zipPassword) return
+    setParseError(null)
+    try {
+      const csvContent = await extractCsvFromZip(zipArrayBuffer, zipPassword)
+      const outcome = parseC6Csv(csvContent)
+      if (!outcome.success) { setParseError(outcome.error); return }
+      setParseResult(outcome.data)
+      setNeedsPassword(false)
+      setParseError(null)
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : 'Erro ao processar arquivo')
+    }
+  }
 
   const handleSubmit = async () => {
     if (!parseResult || !dataVencimento) return
@@ -119,6 +145,9 @@ export function InvoiceImportModal({
     setDataVencimento('')
     setQuinzena('1')
     setFileName(null)
+    setNeedsPassword(false)
+    setZipPassword('')
+    setZipArrayBuffer(null)
     onClose()
   }
 
@@ -193,6 +222,47 @@ export function InvoiceImportModal({
             fontSize: 14,
           }}>
             {parseError}
+          </div>
+        )}
+
+        {/* ZIP password */}
+        {needsPassword && (
+          <div>
+            <label style={labelStyle}>Senha do arquivo ZIP</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ ...inputWrapStyle, flex: 1 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <input
+                  type="password"
+                  placeholder="Digite a senha do ZIP"
+                  value={zipPassword}
+                  onChange={(e) => setZipPassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockZip() }}
+                  style={inputStyle}
+                />
+              </div>
+              <button
+                onClick={handleUnlockZip}
+                disabled={!zipPassword}
+                style={{
+                  padding: '14px 20px',
+                  borderRadius: 14,
+                  border: 'none',
+                  background: '#2563eb',
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: zipPassword ? 'pointer' : 'not-allowed',
+                  opacity: zipPassword ? 1 : 0.6,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Desbloquear
+              </button>
+            </div>
           </div>
         )}
 
