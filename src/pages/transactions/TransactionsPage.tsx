@@ -45,7 +45,6 @@ export function TransactionsPage() {
   const [showInvoiceImportModal, setShowInvoiceImportModal] = useState(false)
   const [showInvoiceDetailModal, setShowInvoiceDetailModal] = useState(false)
   const [invoiceDetailExpense, setInvoiceDetailExpense] = useState<Expense | null>(null)
-  const [invoiceExpenseIds, setInvoiceExpenseIds] = useState<Set<string>>(new Set())
 
   // Scope modal state for recurring expense edits
   const [showScopeModal, setShowScopeModal] = useState(false)
@@ -112,23 +111,7 @@ export function TransactionsPage() {
 
   useEffect(() => {
     if (profileId) {
-      fetchExpenses(profileId, { month: selectedMonth, year: selectedYear }).then(() => {
-        // Populate invoice items cache for "Cartão" expenses
-        const currentExpenses = useExpensesStore.getState().expenses
-        const cartaoExpenses = currentExpenses.filter((e) => e.categoria === 'Cartão')
-        if (cartaoExpenses.length > 0) {
-          Promise.all(
-            cartaoExpenses.map(async (e) => {
-              const has = await hasInvoiceItems(e.id)
-              return has ? e.id : null
-            }),
-          ).then((ids) => {
-            setInvoiceExpenseIds(new Set(ids.filter((id): id is string => id !== null)))
-          })
-        } else {
-          setInvoiceExpenseIds(new Set())
-        }
-      })
+      fetchExpenses(profileId, { month: selectedMonth, year: selectedYear })
     }
   }, [profileId, selectedMonth, selectedYear, fetchExpenses])
 

@@ -164,12 +164,12 @@ export async function extractCsvFromZip(zipData: ArrayBuffer, password?: string)
       throw new Error('Nenhum arquivo CSV encontrado no ZIP')
     }
     
-    if (!csvEntry.getData) {
+    if (!('getData' in csvEntry)) {
       await reader.close()
       throw new Error('Não foi possível ler o arquivo CSV do ZIP')
     }
     
-    const csvContent = await csvEntry.getData(new TextWriter())
+    const csvContent = await (csvEntry as { getData: (writer: TextWriter) => Promise<string> }).getData(new TextWriter())
     await reader.close()
     return csvContent
   } catch (err) {
