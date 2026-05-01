@@ -7,6 +7,7 @@ import {
   signInWithGoogle,
 } from '../../services/auth.service'
 import { hasCompletedOnboarding } from '../../services/profile.service'
+import logo from '../../assets/logo.png'
 
 type AuthMode = 'login' | 'register'
 
@@ -67,10 +68,7 @@ export function AuthPage() {
     <div style={{ minHeight: '100dvh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       {/* Logo */}
       <div style={{ paddingTop: 60, paddingBottom: 24, textAlign: 'center' }}>
-        <div style={{ width: 72, height: 72, borderRadius: 18, background: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(37,99,235,0.3)' }}>
-          <span style={{ fontSize: 32, fontWeight: 700, color: '#fff' }}>P</span>
-        </div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Plan. Financeiro</h1>
+        <img src={logo} alt="Plan Financeiro" style={{ width: 180, height: 'auto', margin: '0 auto 8px' }} />
         <p style={{ fontSize: 14, color: 'var(--text2)', marginTop: 4 }}>{mode === 'login' ? 'Entre na sua conta' : 'Crie sua conta'}</p>
       </div>
 

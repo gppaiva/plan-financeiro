@@ -1,5 +1,6 @@
 import { useThemeStore } from '../../stores/theme.store'
 import { signOut } from '../../services/auth.service'
+import logo from '../../assets/logo.png'
 
 interface HeaderProps {
   title: string
@@ -30,9 +31,12 @@ export function Header({ title }: HeaderProps) {
         padding: '14px 20px',
       }}
     >
-      <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
-        {title}
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <img src={logo} alt="Plan Financeiro" style={{ width: 28, height: 'auto' }} />
+        <h1 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
+          {title}
+        </h1>
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* Theme toggle */}

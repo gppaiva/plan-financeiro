@@ -5,6 +5,7 @@ import { useOnboardingStore } from '../../stores/onboarding.store'
 import { useAuthStore } from '../../stores/auth.store'
 import { createProfile } from '../../services/profile.service'
 import { parseCurrency, formatCurrencyInput } from '../../lib/format'
+import logo from '../../assets/logo.png'
 
 export function OnboardingPage() {
   const navigate = useNavigate()
@@ -154,6 +155,7 @@ export function OnboardingPage() {
     >
       {/* Top area */}
       <div style={{ paddingTop: 48, paddingBottom: 20, textAlign: 'center', width: '100%', maxWidth: 430, padding: '48px 24px 20px' }}>
+        <img src={logo} alt="Plan Financeiro" style={{ width: 120, height: 'auto', margin: '0 auto 16px' }} />
         <div
           style={{
             width: 64,
