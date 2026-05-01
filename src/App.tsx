@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom
 import { ToastProvider } from './components/ui/Toast'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { useAuthStore } from './stores/auth.store'
-import { useThemeStore } from './stores/theme.store'
 import { onAuthStateChange, getSession } from './services/auth.service'
 import { getProfile } from './services/profile.service'
 
@@ -66,7 +65,6 @@ function AuthRoute() {
 
 function AppContent() {
   const { setSession, setUser, setLoading } = useAuthStore()
-  const { setTheme } = useThemeStore()
 
   useEffect(() => {
     // Check initial session
@@ -78,12 +76,8 @@ function AppContent() {
         // Load theme preference from profile
         if (session?.user) {
           try {
-            const profile = await getProfile(session.user.id)
-            if (profile) {
-              // Theme could be stored in profile; for now use system preference
-              const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-              setTheme(prefersDark)
-            }
+            await getProfile(session.user.id)
+            // Theme is always dark by default — user can toggle via header
           } catch {
             // Ignore profile load errors for theme
           }
@@ -112,7 +106,7 @@ function AppContent() {
     return () => {
       unsubscribe()
     }
-  }, [setSession, setUser, setLoading, setTheme])
+  }, [setSession, setUser, setLoading])
 
   return (
     <Routes>
