@@ -95,6 +95,7 @@ export interface ExtraIncome {
   user_id: string
   descricao: string
   valor: number
+  quinzena: Quinzena
   data: string
   created_at: string
 }

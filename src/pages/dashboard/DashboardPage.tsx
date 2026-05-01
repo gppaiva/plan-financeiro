@@ -6,11 +6,13 @@ import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { useExpensesStore } from '../../stores/expenses.store'
 import { useThirdPartyStore } from '../../stores/third-party.store'
+import { useExtraIncomeStore } from '../../stores/extra-income.store'
 import { useProfile, clearProfileCache } from '../../hooks/useProfile'
 import { updateProfile } from '../../services/profile.service'
 import { filterByQuinzena, calculatePaidTotal, calculatePendingTotal } from '../../lib/quinzena'
 import { formatCurrency, parseCurrency, formatCurrencyInput } from '../../lib/format'
-import type { Quinzena, Expense, ExpenseCategory } from '../../types'
+import { extraIncomeSchema } from '../../schemas/extra-income.schema'
+import type { Quinzena, Expense, ExpenseCategory, ExtraIncome } from '../../types'
 
 type QuinzenaFilter = 'all' | Quinzena
 
@@ -18,8 +20,20 @@ export function DashboardPage() {
   const { user, profile, profileId } = useProfile()
   const { expenses, fetchExpenses } = useExpensesStore()
   const { expenses: thirdPartyExpenses, fetchExpenses: fetchThirdParty } = useThirdPartyStore()
+  const {
+    extraIncomes,
+    loading: extraIncomesLoading,
+    fetchExtraIncomes,
+    addExtraIncome,
+    updateExtraIncome,
+    removeExtraIncome,
+  } = useExtraIncomeStore()
   const [quinzenaFilter, setQuinzenaFilter] = useState<QuinzenaFilter>('all')
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+
+  const now = new Date()
+  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
+  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
 
   // Edit income modal
   const [showIncomeModal, setShowIncomeModal] = useState(false)
@@ -30,6 +44,16 @@ export function DashboardPage() {
   const [savingIncome, setSavingIncome] = useState(false)
   const { showToast } = useToast()
 
+  // Extra income inline form state (inside income modal)
+  const [extraDesc, setExtraDesc] = useState('')
+  const [extraValorDisplay, setExtraValorDisplay] = useState('')
+  const [extraQuinzena, setExtraQuinzena] = useState<'1' | '2'>('1')
+  const [extraErrors, setExtraErrors] = useState<{ descricao?: string; valor?: string; quinzena?: string }>({})
+  const [addingExtra, setAddingExtra] = useState(false)
+  const [editingExtra, setEditingExtra] = useState<ExtraIncome | null>(null)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<ExtraIncome | null>(null)
+  const [deletingExtra, setDeletingExtra] = useState(false)
+
   const openIncomeModal = useCallback(() => {
     const q1 = profile?.quinzena_1_valor ?? 0
     const q2 = profile?.quinzena_2_valor ?? 0
@@ -37,6 +61,12 @@ export function DashboardPage() {
     setEditQ1(formatCurrencyInput(q1))
     setEditQ2Num(q2)
     setEditQ2(formatCurrencyInput(q2))
+    setExtraDesc('')
+    setExtraValorDisplay('')
+    setExtraQuinzena('1')
+    setExtraErrors({})
+    setEditingExtra(null)
+    setShowDeleteConfirm(null)
     setShowIncomeModal(true)
   }, [profile])
 
@@ -48,7 +78,6 @@ export function DashboardPage() {
       await updateProfile(user.id, {
         salario_liquido: totalSalario,
       })
-      // Update quinzena values directly via supabase
       const { supabase } = await import('../../lib/supabase')
       await supabase
         .from('user_profiles')
@@ -57,7 +86,6 @@ export function DashboardPage() {
       clearProfileCache()
       showToast('Renda atualizada!', 'success')
       setShowIncomeModal(false)
-      // Re-fetch by navigating (soft reload)
       setTimeout(() => {
         window.location.href = '/dashboard'
       }, 300)
@@ -68,9 +96,70 @@ export function DashboardPage() {
     }
   }
 
-  const now = new Date()
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1)
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear())
+  // Extra income handlers
+  const handleStartEditExtra = useCallback((income: ExtraIncome) => {
+    setEditingExtra(income)
+    setExtraDesc(income.descricao)
+    setExtraValorDisplay(formatCurrencyInput(income.valor))
+    setExtraQuinzena(income.quinzena)
+    setExtraErrors({})
+  }, [])
+
+  const handleCancelEditExtra = useCallback(() => {
+    setEditingExtra(null)
+    setExtraDesc('')
+    setExtraValorDisplay('')
+    setExtraQuinzena('1')
+    setExtraErrors({})
+  }, [])
+
+  const handleSaveExtra = useCallback(async () => {
+    const valorNum = parseCurrency(extraValorDisplay)
+    const result = extraIncomeSchema.safeParse({ descricao: extraDesc, valor: valorNum, quinzena: extraQuinzena })
+    if (!result.success) {
+      const fieldErrors: { descricao?: string; valor?: string; quinzena?: string } = {}
+      for (const issue of result.error.issues) {
+        const field = issue.path[0] as string
+        if (field === 'descricao' || field === 'valor' || field === 'quinzena') fieldErrors[field] = issue.message
+      }
+      setExtraErrors(fieldErrors)
+      return
+    }
+    setExtraErrors({})
+    setAddingExtra(true)
+    try {
+      if (editingExtra) {
+        await updateExtraIncome(editingExtra.id, result.data)
+        showToast('Ganho extra atualizado!', 'success')
+      } else {
+        if (!profileId) return
+        await addExtraIncome(profileId, result.data, selectedMonth, selectedYear)
+        showToast('Ganho extra adicionado!', 'success')
+      }
+      setExtraDesc('')
+      setExtraValorDisplay('')
+      setExtraQuinzena('1')
+      setEditingExtra(null)
+    } catch {
+      showToast(editingExtra ? 'Erro ao atualizar ganho extra' : 'Erro ao adicionar ganho extra', 'error')
+    } finally {
+      setAddingExtra(false)
+    }
+  }, [extraDesc, extraValorDisplay, extraQuinzena, editingExtra, profileId, selectedMonth, selectedYear, addExtraIncome, updateExtraIncome, showToast])
+
+  const handleDeleteExtra = useCallback(async () => {
+    if (!showDeleteConfirm) return
+    setDeletingExtra(true)
+    try {
+      await removeExtraIncome(showDeleteConfirm.id)
+      showToast('Ganho extra excluído!', 'success')
+      setShowDeleteConfirm(null)
+    } catch {
+      showToast('Erro ao excluir ganho extra', 'error')
+    } finally {
+      setDeletingExtra(false)
+    }
+  }, [showDeleteConfirm, removeExtraIncome, showToast])
 
   const handleMonthChange = useCallback((month: number, year: number) => {
     setSelectedMonth(month)
@@ -81,8 +170,11 @@ export function DashboardPage() {
     if (profileId) {
       fetchExpenses(profileId, { month: selectedMonth, year: selectedYear })
       fetchThirdParty(profileId)
+      fetchExtraIncomes(profileId, selectedMonth, selectedYear).catch(() => {
+        showToast('Erro ao buscar ganhos extras', 'error')
+      })
     }
-  }, [profileId, selectedMonth, selectedYear, fetchExpenses, fetchThirdParty])
+  }, [profileId, selectedMonth, selectedYear, fetchExpenses, fetchThirdParty, fetchExtraIncomes, showToast])
 
   const filteredExpenses = useMemo(
     () => filterByQuinzena(expenses, quinzenaFilter),
@@ -103,7 +195,11 @@ export function DashboardPage() {
   const pendingTotal = useMemo(() => calculatePendingTotal(filteredExpenses), [filteredExpenses])
 
   const income = profile?.salario_liquido ?? 0
-  const saldoReal = income - totalExpenses
+  const totalExtraIncomes = useMemo(
+    () => extraIncomes.reduce((sum, e) => sum + e.valor, 0),
+    [extraIncomes],
+  )
+  const saldoReal = income + totalExtraIncomes - totalExpenses
 
   const categoryGroups = useMemo(() => {
     const groups = new Map<ExpenseCategory, Expense[]>()
@@ -237,6 +333,27 @@ export function DashboardPage() {
               </div>
               <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
                 {formatCurrency(totalExpenses)}
+              </p>
+            </div>
+
+            <div style={miniCardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.8)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+                <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>Extras</span>
+              </div>
+              <p style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>
+                {formatCurrency(totalExtraIncomes)}
               </p>
             </div>
           </div>
@@ -433,16 +550,17 @@ export function DashboardPage() {
       <Modal
         isOpen={showIncomeModal}
         onClose={() => setShowIncomeModal(false)}
-        title="Editar Renda"
+        title="Editar Saldo do Mês"
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-            O saldo é calculado pela soma das quinzenas.
+            Ajuste os valores das quinzenas e adicione ganhos extras para este mês.
           </p>
 
+          {/* Quinzena 1 */}
           <div>
             <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#1e293b', marginBottom: 8 }}>
-              Dia 15
+              {q1Label}
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e2e8f0', borderRadius: 14, padding: '14px 16px', background: '#fff' }}>
               <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
@@ -458,9 +576,10 @@ export function DashboardPage() {
             </div>
           </div>
 
+          {/* Quinzena 2 */}
           <div>
             <label style={{ display: 'block', fontSize: 14, fontWeight: 500, color: '#1e293b', marginBottom: 8 }}>
-              Último dia útil
+              {q2Label}
             </label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid #e2e8f0', borderRadius: 14, padding: '14px 16px', background: '#fff' }}>
               <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
@@ -476,10 +595,207 @@ export function DashboardPage() {
             </div>
           </div>
 
+          {/* Divider */}
+          <div style={{ height: 1, background: '#e2e8f0' }} />
+
+          {/* Extra Incomes Section */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <label style={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>
+                Ganhos Extras do Mês
+              </label>
+            </div>
+
+            {/* Existing extra incomes list */}
+            {extraIncomesLoading ? (
+              <p style={{ textAlign: 'center', fontSize: 13, color: '#94a3b8', padding: '8px 0' }}>Carregando...</p>
+            ) : extraIncomes.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+                {extraIncomes.map((ei) => (
+                  <div key={ei.id}>
+                    {showDeleteConfirm?.id === ei.id ? (
+                      /* Delete confirmation inline */
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#fef2f2', borderRadius: 12, border: '1px solid #fecaca' }}>
+                        <span style={{ fontSize: 13, color: '#991b1b' }}>Excluir "{ei.descricao}"?</span>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(null)}
+                            style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 12, fontWeight: 500, cursor: 'pointer' }}
+                          >
+                            Não
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleDeleteExtra}
+                            disabled={deletingExtra}
+                            style={{ padding: '4px 10px', borderRadius: 8, border: 'none', background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 500, cursor: deletingExtra ? 'not-allowed' : 'pointer', opacity: deletingExtra ? 0.6 : 1 }}
+                          >
+                            {deletingExtra ? '...' : 'Sim'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Normal item row */
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 13, color: '#334155', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {ei.descricao}
+                          </p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                            <p style={{ fontSize: 14, fontWeight: 600, color: '#16a34a', margin: 0 }}>
+                              {formatCurrency(ei.valor)}
+                            </p>
+                            <span style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9', borderRadius: 6, padding: '1px 6px' }}>
+                              Q{ei.quinzena}
+                            </span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4, marginLeft: 8, flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditExtra(ei)}
+                            aria-label={`Editar ${ei.descricao}`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, display: 'flex' }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowDeleteConfirm(ei)}
+                            aria-label={`Excluir ${ei.descricao}`}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 6, display: 'flex' }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: '#94a3b8', margin: '0 0 12px', textAlign: 'center' }}>
+                Nenhum ganho extra neste mês
+              </p>
+            )}
+
+            {/* Add/Edit extra income inline form */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 14, background: '#f8fafc', borderRadius: 12, border: '1.5px dashed #cbd5e1' }}>
+              <p style={{ fontSize: 12, fontWeight: 500, color: '#64748b', margin: 0 }}>
+                {editingExtra ? 'Editar ganho extra' : 'Adicionar ganho extra'}
+              </p>
+              <input
+                type="text"
+                placeholder="Ex: 13° salário, férias, PLR"
+                value={extraDesc}
+                onChange={(e) => setExtraDesc(e.target.value)}
+                style={{ border: '1.5px solid #e2e8f0', borderRadius: 10, padding: '10px 14px', fontSize: 14, color: '#1e293b', background: '#fff', outline: 'none', borderColor: extraErrors.descricao ? '#ef4444' : '#e2e8f0' }}
+              />
+              {extraErrors.descricao && (
+                <p style={{ fontSize: 12, color: '#ef4444', margin: 0 }}>{extraErrors.descricao}</p>
+              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, border: '1.5px solid', borderColor: extraErrors.valor ? '#ef4444' : '#e2e8f0', borderRadius: 10, padding: '10px 14px', background: '#fff' }}>
+                <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  value={extraValorDisplay}
+                  onChange={(e) => setExtraValorDisplay(e.target.value.replace(/[^\d.,]/g, ''))}
+                  style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, color: '#1e293b', background: 'transparent' }}
+                />
+              </div>
+              {extraErrors.valor && (
+                <p style={{ fontSize: 12, color: '#ef4444', margin: 0 }}>{extraErrors.valor}</p>
+              )}
+              {/* Quinzena selector */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setExtraQuinzena('1')}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    borderRadius: 10,
+                    border: '1.5px solid',
+                    borderColor: extraQuinzena === '1' ? '#2563eb' : '#e2e8f0',
+                    background: extraQuinzena === '1' ? '#eff6ff' : '#fff',
+                    color: extraQuinzena === '1' ? '#2563eb' : '#64748b',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {q1Label}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExtraQuinzena('2')}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    borderRadius: 10,
+                    border: '1.5px solid',
+                    borderColor: extraQuinzena === '2' ? '#2563eb' : '#e2e8f0',
+                    background: extraQuinzena === '2' ? '#eff6ff' : '#fff',
+                    color: extraQuinzena === '2' ? '#2563eb' : '#64748b',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                  }}
+                >
+                  {q2Label}
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {editingExtra && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEditExtra}
+                    style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: '1.5px solid #e2e8f0', background: '#fff', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Cancelar
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleSaveExtra}
+                  disabled={addingExtra}
+                  style={{
+                    flex: 1,
+                    padding: '10px 0',
+                    borderRadius: 10,
+                    border: 'none',
+                    background: '#16a34a',
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: addingExtra ? 'not-allowed' : 'pointer',
+                    opacity: addingExtra ? 0.6 : 1,
+                  }}
+                >
+                  {addingExtra ? 'Salvando...' : editingExtra ? 'Atualizar' : '+ Adicionar'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: '#e2e8f0' }} />
+
           {/* Total preview */}
           <div style={{ background: '#f1f5f9', borderRadius: 12, padding: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: 14, color: '#64748b' }}>Total mensal</span>
-            <span style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>{formatCurrency(editQ1Num + editQ2Num)}</span>
+            <span style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>{formatCurrency(editQ1Num + editQ2Num + totalExtraIncomes)}</span>
           </div>
 
           <button
