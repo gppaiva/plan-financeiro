@@ -121,24 +121,24 @@ export function OnboardingPage() {
     display: 'flex',
     alignItems: 'center',
     gap: 12,
-    border: '1.5px solid #e2e8f0',
+    border: '1.5px solid var(--border)',
     borderRadius: 14,
     padding: '14px 16px',
-    background: '#fff',
+    background: 'var(--card-bg)',
   }
   const inputStyle: React.CSSProperties = {
     flex: 1,
     border: 'none',
     outline: 'none',
     fontSize: 15,
-    color: '#1e293b',
+    color: 'var(--text)',
     background: 'transparent',
   }
   const labelStyle: React.CSSProperties = {
     display: 'block',
     fontSize: 14,
     fontWeight: 500,
-    color: '#1e293b',
+    color: 'var(--text)',
     marginBottom: 8,
   }
 
@@ -146,7 +146,7 @@ export function OnboardingPage() {
     <div
       style={{
         minHeight: '100dvh',
-        background: 'linear-gradient(180deg, #dbeafe 0%, #eff6ff 40%, #eff6ff 100%)',
+        background: 'var(--bg)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -159,7 +159,7 @@ export function OnboardingPage() {
             width: 64,
             height: 64,
             borderRadius: '50%',
-            background: '#f1f5f9',
+            background: 'var(--bg2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -168,10 +168,10 @@ export function OnboardingPage() {
         >
           {stepIcons[step - 1]}
         </div>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', margin: 0 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
           Configuração inicial
         </h1>
-        <p style={{ fontSize: 14, color: '#64748b', marginTop: 4 }}>
+        <p style={{ fontSize: 14, color: 'var(--text2)', marginTop: 4 }}>
           Etapa {step} de {totalSteps}
         </p>
       </div>
@@ -182,7 +182,7 @@ export function OnboardingPage() {
           style={{
             height: 6,
             borderRadius: 3,
-            background: '#e2e8f0',
+            background: 'var(--border)',
             overflow: 'hidden',
           }}
         >
@@ -204,7 +204,7 @@ export function OnboardingPage() {
           flex: 1,
           width: '100%',
           maxWidth: 430,
-          background: '#fff',
+          background: 'var(--card-bg)',
           borderRadius: '28px 28px 0 0',
           padding: '28px 24px 40px',
           boxShadow: '0 -4px 30px rgba(0,0,0,0.06)',
@@ -213,10 +213,10 @@ export function OnboardingPage() {
         {/* Step 1: Ciclo de pagamento */}
         {step === 1 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
               Ciclo de pagamento
             </h2>
-            <p style={{ fontSize: 14, color: '#64748b', margin: 0 }}>
+            <p style={{ fontSize: 14, color: 'var(--text2)', margin: 0 }}>
               Como você recebe seu salário?
             </p>
 
@@ -225,15 +225,15 @@ export function OnboardingPage() {
               onClick={() => setStepData(1, { ...step1, ciclo: 'quinzenal' })}
               style={{
                 borderRadius: 16,
-                border: step1.ciclo === 'quinzenal' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
-                background: step1.ciclo === 'quinzenal' ? 'rgba(37,99,235,0.04)' : '#fff',
+                border: step1.ciclo === 'quinzenal' ? '1.5px solid #2563eb' : '1.5px solid var(--border)',
+                background: step1.ciclo === 'quinzenal' ? 'rgba(37,99,235,0.04)' : 'var(--card-bg)',
                 padding: 18,
                 textAlign: 'left',
                 cursor: 'pointer',
               }}
             >
-              <span style={{ fontSize: 15, fontWeight: 600, color: '#1e293b' }}>Quinzenal</span>
-              <p style={{ fontSize: 13, color: '#64748b', marginTop: 4, margin: '4px 0 0' }}>
+              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Quinzenal</span>
+              <p style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4, margin: '4px 0 0' }}>
                 Recebo duas vezes por mês
               </p>
             </button>
@@ -241,34 +241,34 @@ export function OnboardingPage() {
             {/* Quinzena cycle options */}
             {step1.ciclo === 'quinzenal' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingLeft: 8 }}>
-                <p style={{ fontSize: 13, fontWeight: 500, color: '#64748b', margin: 0 }}>Quais dias você recebe?</p>
+                <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text2)', margin: 0 }}>Quais dias você recebe?</p>
                 <button
                   type="button"
                   onClick={() => setStepData(1, { ...step1, cicloTipo: '15_ultimo' })}
                   style={{
                     borderRadius: 12,
-                    border: step1.cicloTipo === '15_ultimo' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
-                    background: step1.cicloTipo === '15_ultimo' ? 'rgba(37,99,235,0.04)' : '#fff',
+                    border: step1.cicloTipo === '15_ultimo' ? '1.5px solid #2563eb' : '1.5px solid var(--border)',
+                    background: step1.cicloTipo === '15_ultimo' ? 'rgba(37,99,235,0.04)' : 'var(--card-bg)',
                     padding: 14,
                     textAlign: 'left',
                     cursor: 'pointer',
                   }}
                 >
-                  <span style={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>Dia 15 e Último dia útil</span>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>Dia 15 e Último dia útil</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStepData(1, { ...step1, cicloTipo: '5_20' })}
                   style={{
                     borderRadius: 12,
-                    border: step1.cicloTipo === '5_20' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
-                    background: step1.cicloTipo === '5_20' ? 'rgba(37,99,235,0.04)' : '#fff',
+                    border: step1.cicloTipo === '5_20' ? '1.5px solid #2563eb' : '1.5px solid var(--border)',
+                    background: step1.cicloTipo === '5_20' ? 'rgba(37,99,235,0.04)' : 'var(--card-bg)',
                     padding: 14,
                     textAlign: 'left',
                     cursor: 'pointer',
                   }}
                 >
-                  <span style={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>5º dia útil e Dia 20</span>
+                  <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>5º dia útil e Dia 20</span>
                 </button>
               </div>
             )}
@@ -278,15 +278,15 @@ export function OnboardingPage() {
               onClick={() => setStepData(1, { ciclo: 'mensal' })}
               style={{
                 borderRadius: 16,
-                border: step1.ciclo === 'mensal' ? '1.5px solid #2563eb' : '1.5px solid #e2e8f0',
-                background: step1.ciclo === 'mensal' ? 'rgba(37,99,235,0.04)' : '#fff',
+                border: step1.ciclo === 'mensal' ? '1.5px solid #2563eb' : '1.5px solid var(--border)',
+                background: step1.ciclo === 'mensal' ? 'rgba(37,99,235,0.04)' : 'var(--card-bg)',
                 padding: 18,
                 textAlign: 'left',
                 cursor: 'pointer',
               }}
             >
-              <span style={{ fontSize: 15, fontWeight: 600, color: '#1e293b' }}>Mensal</span>
-              <p style={{ fontSize: 13, color: '#64748b', marginTop: 4, margin: '4px 0 0' }}>
+              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Mensal</span>
+              <p style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4, margin: '4px 0 0' }}>
                 Recebo uma vez por mês
               </p>
             </button>
@@ -296,14 +296,14 @@ export function OnboardingPage() {
         {/* Step 2: Renda (with currency mask) */}
         {step === 2 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
               Renda
             </h2>
 
             <div>
               <label style={labelStyle}>Salário bruto</label>
               <div style={inputWrapStyle}>
-                <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+                <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -321,7 +321,7 @@ export function OnboardingPage() {
             <div>
               <label style={labelStyle}>Salário líquido</label>
               <div style={inputWrapStyle}>
-                <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+                <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -341,7 +341,7 @@ export function OnboardingPage() {
                 <div>
                   <label style={labelStyle}>Valor quinzena 1 ({step1.cicloTipo === '5_20' ? '5º dia útil' : 'dia 15'})</label>
                   <div style={inputWrapStyle}>
-                    <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+                    <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
                     <input
                       type="text"
                       inputMode="decimal"
@@ -359,7 +359,7 @@ export function OnboardingPage() {
                 <div>
                   <label style={labelStyle}>Valor quinzena 2 ({step1.cicloTipo === '5_20' ? 'dia 20' : 'último dia útil'})</label>
                   <div style={inputWrapStyle}>
-                    <span style={{ fontSize: 14, color: '#94a3b8', fontWeight: 500 }}>R$</span>
+                    <span style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
                     <input
                       type="text"
                       inputMode="decimal"
@@ -381,7 +381,7 @@ export function OnboardingPage() {
         {/* Step 3: Rendimentos extras */}
         {step === 3 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 600, color: '#1e293b', margin: 0 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', margin: 0 }}>
               Rendimentos extras
             </h2>
             <div
@@ -399,7 +399,7 @@ export function OnboardingPage() {
                   width: 64,
                   height: 64,
                   borderRadius: '50%',
-                  background: '#f1f5f9',
+                  background: 'var(--bg2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -411,7 +411,7 @@ export function OnboardingPage() {
                   height="28"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#94a3b8"
+                  stroke="var(--text2)"
                   strokeWidth="1.5"
                   aria-hidden="true"
                 >
@@ -420,7 +420,7 @@ export function OnboardingPage() {
                   <line x1="8" y1="12" x2="16" y2="12" />
                 </svg>
               </div>
-              <p style={{ fontSize: 14, color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+              <p style={{ fontSize: 14, color: 'var(--text2)', margin: 0, lineHeight: 1.5 }}>
                 Você poderá adicionar rendimentos extras depois no dashboard.
               </p>
             </div>
@@ -436,9 +436,9 @@ export function OnboardingPage() {
                 flex: 1,
                 padding: '16px 0',
                 borderRadius: 14,
-                border: '1.5px solid #e2e8f0',
-                background: '#fff',
-                color: '#334155',
+                border: '1.5px solid var(--border)',
+                background: 'var(--card-bg)',
+                color: 'var(--text)',
                 fontSize: 15,
                 fontWeight: 600,
                 cursor: 'pointer',

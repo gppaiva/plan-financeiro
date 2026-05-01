@@ -7,7 +7,7 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  isDark: false,
+  isDark: true,
   toggle: () =>
     set((state) => {
       const newIsDark = !state.isDark
@@ -25,3 +25,6 @@ export const useThemeStore = create<ThemeState>((set) => ({
     set({ isDark })
   },
 }))
+
+// Set dark theme immediately on load
+document.documentElement.setAttribute('data-theme', 'dark')
