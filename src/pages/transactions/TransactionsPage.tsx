@@ -148,21 +148,9 @@ export function TransactionsPage() {
     ]
   }, [profile])
 
-  const openEditModal = useCallback(async (expense: Expense) => {
-    // If it's a "Cartão" expense, check if it has invoice items
-    if (expense.categoria === 'Cartão') {
-      try {
-        const has = await hasInvoiceItems(expense.id)
-        if (has) {
-          setInvoiceDetailExpense(expense)
-          setShowInvoiceDetailModal(true)
-          return
-        }
-      } catch {
-        // If check fails, fall through to normal edit
-      }
-    }
+  const [editHasInvoiceItems, setEditHasInvoiceItems] = useState(false)
 
+  const openEditModal = useCallback(async (expense: Expense) => {
     setEditingExpenseId(expense.id)
     setEditDescricao(expense.descricao)
     setEditValor(String(expense.valor))
@@ -173,6 +161,18 @@ export function TransactionsPage() {
     setEditDiaVencimento(expense.data_vencimento ? expense.data_vencimento.split('-')[2]?.replace(/^0/, '') || '10' : '10')
     setEditDataFinal(expense.data_final || '')
     setShowEditModal(true)
+
+    // Check if this Cartão expense has invoice items
+    if (expense.categoria === 'Cartão') {
+      try {
+        const has = await hasInvoiceItems(expense.id)
+        setEditHasInvoiceItems(has)
+      } catch {
+        setEditHasInvoiceItems(false)
+      }
+    } else {
+      setEditHasInvoiceItems(false)
+    }
   }, [])
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -547,8 +547,42 @@ export function TransactionsPage() {
             <label style={labelStyle}>Valor</label>
             <div style={inputWrapStyle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              <input type="number" placeholder="0,00" value={editValor} onChange={(e) => setEditValor(e.target.value)} style={inputStyle} />
+              <input type="number" placeholder="0,00" value={editValor} onChange={(e) => setEditValor(e.target.value)} style={inputStyle} disabled={editHasInvoiceItems} />
             </div>
+            {editHasInvoiceItems && (
+              <button
+                type="button"
+                onClick={() => {
+                  const expense = expenses.find((e) => e.id === editingExpenseId)
+                  if (expense) {
+                    setShowEditModal(false)
+                    setEditingExpenseId(null)
+                    setInvoiceDetailExpense(expense)
+                    setShowInvoiceDetailModal(true)
+                  }
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginTop: 8,
+                  padding: '8px 14px',
+                  borderRadius: 10,
+                  border: '1.5px solid #2563eb',
+                  background: 'transparent',
+                  color: '#2563eb',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                Ver transações da fatura
+              </button>
+            )}
           </div>
           <div>
             <label style={labelStyle}>Categoria</label>
