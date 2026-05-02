@@ -155,3 +155,46 @@ Ao iniciar nova sessão, pedir para ler:
 - Arquivos: invoice-csv-parser.ts, invoice.schema.ts, invoice.service.ts, InvoiceImportModal.tsx, InvoiceDetailModal.tsx
 - Dependência: JSZip para extração de ZIP
 - Fase 2 (futura): parsing de PDF (Bradesco + C6) com suporte a senha
+
+### 17. ZIP com Senha — @zip.js/zip.js
+- Substituiu JSZip por `@zip.js/zip.js` que suporta ZIP protegido com senha
+- Campo de senha aparece automaticamente quando ZIP é criptografado
+- Botão "Desbloquear" tenta extrair com a senha informada
+- Mensagem "Senha incorreta" se errar
+
+### 18. Detalhe da Fatura — Fluxo de Abertura
+- Clicar na despesa "Cartão" abre o modal de edição normal (como qualquer despesa)
+- No modal de edição, campo de valor fica desabilitado e aparece botão "Ver transações da fatura"
+- Clicar no botão abre o InvoiceDetailModal com a lista de transações
+
+### 19. Direcionar Gasto para Terceiro (a partir da fatura)
+- Cada item da fatura tem botão "Direcionar gasto"
+- Formulário inline: nome da pessoa + campo de valor (pré-preenchido com valor total)
+- Pode direcionar valor parcial ou total
+- Valor direcionado é subtraído do item da fatura
+- Se valor fica 0, item é removido da fatura
+- Total da fatura recalcula automaticamente
+- Migration 011: coluna `source_invoice_item_id` em `third_party_expenses` (FK → invoice_items)
+
+### 20. Retorno de Valor ao Excluir Terceiro
+- Ao excluir despesa de terceiro que veio de uma fatura, o valor retorna ao item original
+- Verifica `source_invoice_item_id` antes de deletar
+- Soma o valor de volta no invoice_item e recalcula total da fatura
+
+### 21. Merge de Fatura no Re-upload
+- Se fizer upload da mesma fatura (mesmo banco + data de vencimento), sistema complementa
+- Compara itens por `data_compra + descricao + valor`
+- Adiciona só os novos, ignora duplicados
+- Recalcula total com os novos itens
+- Se todos já existem, mostra "Nenhuma transação nova encontrada"
+
+### 22. Correção de Parsing de Valores CSV
+- Parser agora detecta automaticamente formato decimal (ponto ou vírgula)
+- `50.00` → ponto é decimal (formato C6)
+- `1.234,56` → ponto é milhar, vírgula é decimal (formato brasileiro)
+
+### Versão Atual: 1.0.24
+
+### Migrations Pendentes (rodar no Supabase)
+- `010_invoice_items.sql` — tabela de itens de fatura
+- `011_third_party_invoice_link.sql` — link terceiro → item de fatura
