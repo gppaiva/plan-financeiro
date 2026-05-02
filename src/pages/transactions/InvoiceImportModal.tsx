@@ -132,8 +132,14 @@ export function InvoiceImportModal({
       showToast('Fatura importada com sucesso!', 'success')
       handleClose()
       onSuccess()
-    } catch {
-      showToast('Erro ao importar fatura', 'error')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao importar fatura'
+      if (msg.includes('Nenhuma transação nova')) {
+        showToast(msg, 'success')
+        handleClose()
+      } else {
+        showToast(msg, 'error')
+      }
     } finally {
       setSubmitting(false)
     }
