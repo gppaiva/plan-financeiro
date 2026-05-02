@@ -69,6 +69,7 @@ export interface ThirdPartyExpense {
   valor: number
   data_vencimento: string
   status: ExpenseStatus
+  source_invoice_item_id: string | null
   created_at: string
   updated_at: string
 }

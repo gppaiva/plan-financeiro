@@ -118,7 +118,7 @@ export function InvoiceDetailModal({
     }
     setRedirecting(true)
     try {
-      // 1. Create third-party expense
+      // 1. Create third-party expense with link to invoice item
       const { error } = await supabase.from('third_party_expenses').insert({
         user_id: expense.user_id,
         pessoa: redirectPessoa.trim(),
@@ -126,25 +126,37 @@ export function InvoiceDetailModal({
         valor: valorToRedirect,
         data_vencimento: expense.data_vencimento,
         status: 'pending',
+        source_invoice_item_id: item.id,
       })
       if (error) throw new Error(error.message)
 
       // 2. Subtract the redirected value from the invoice item
       const newItemValor = Math.round((Number(item.valor) - valorToRedirect) * 100) / 100
       if (newItemValor > 0) {
-        const { newTotal } = await updateInvoiceItem(item.id, expense.id, newItemValor)
-        setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, valor: newItemValor } : i))
-        onExpenseUpdated({ ...expense, valor: newTotal })
+        try {
+          const { newTotal } = await updateInvoiceItem(item.id, expense.id, newItemValor)
+          setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, valor: newItemValor } : i))
+          onExpenseUpdated({ ...expense, valor: newTotal })
+        } catch (updateErr) {
+          console.error('Erro ao subtrair valor do item:', updateErr)
+          // Third-party was created but item wasn't updated — still show partial success
+        }
       } else {
         // If value becomes 0, delete the item
-        await supabase.from('invoice_items').delete().eq('id', item.id)
-        setItems((prev) => prev.filter((i) => i.id !== item.id))
-        // Recalculate total
-        const remaining = items.filter((i) => i.id !== item.id)
-        const newTotal = remaining.reduce((sum, i) => sum + Number(i.valor), 0)
-        const roundedTotal = Math.round(newTotal * 100) / 100
-        await supabase.from('expenses').update({ valor: roundedTotal }).eq('id', expense.id)
-        onExpenseUpdated({ ...expense, valor: roundedTotal })
+        try {
+          const { error: delError } = await supabase.from('invoice_items').delete().eq('id', item.id)
+          if (delError) console.error('Erro ao deletar item:', delError)
+          setItems((prev) => prev.filter((i) => i.id !== item.id))
+          // Recalculate total
+          const remaining = items.filter((i) => i.id !== item.id)
+          const newTotal = remaining.reduce((sum, i) => sum + Number(i.valor), 0)
+          const roundedTotal = Math.round(newTotal * 100) / 100
+          const { error: expError } = await supabase.from('expenses').update({ valor: roundedTotal }).eq('id', expense.id)
+          if (expError) console.error('Erro ao atualizar total:', expError)
+          onExpenseUpdated({ ...expense, valor: roundedTotal })
+        } catch (delErr) {
+          console.error('Erro ao remover item zerado:', delErr)
+        }
       }
 
       showToast(`R$ ${valorToRedirect.toFixed(2).replace('.', ',')} direcionado para ${redirectPessoa.trim()}!`, 'success')

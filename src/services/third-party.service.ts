@@ -80,6 +80,14 @@ export async function updateThirdPartyExpense(
  * Deletes a third-party expense by id.
  */
 export async function deleteThirdPartyExpense(id: string): Promise<void> {
+  // First, check if this expense was redirected from an invoice item
+  const { data: expense } = await supabase
+    .from(TABLE)
+    .select('source_invoice_item_id, valor')
+    .eq('id', id)
+    .single()
+
+  // Delete the expense
   const { error } = await supabase
     .from(TABLE)
     .delete()
@@ -87,6 +95,46 @@ export async function deleteThirdPartyExpense(id: string): Promise<void> {
 
   if (error) {
     throw new Error(error.message)
+  }
+
+  // If it came from an invoice item, return the value
+  if (expense?.source_invoice_item_id) {
+    try {
+      // Get current invoice item value
+      const { data: item } = await supabase
+        .from('invoice_items')
+        .select('valor, expense_id')
+        .eq('id', expense.source_invoice_item_id)
+        .single()
+
+      if (item) {
+        const newItemValor = Math.round((Number(item.valor) + Number(expense.valor)) * 100) / 100
+
+        // Update invoice item value
+        await supabase
+          .from('invoice_items')
+          .update({ valor: newItemValor })
+          .eq('id', expense.source_invoice_item_id)
+
+        // Recalculate expense total
+        const { data: allItems } = await supabase
+          .from('invoice_items')
+          .select('valor')
+          .eq('expense_id', item.expense_id)
+
+        if (allItems) {
+          const newTotal = allItems.reduce((sum: number, i: { valor: number }) => sum + Number(i.valor), 0)
+          const roundedTotal = Math.round(newTotal * 100) / 100
+          await supabase
+            .from('expenses')
+            .update({ valor: roundedTotal })
+            .eq('id', item.expense_id)
+        }
+      }
+    } catch {
+      // Value return failed but expense was already deleted — log but don't throw
+      console.error('Erro ao retornar valor para item da fatura')
+    }
   }
 }
 
