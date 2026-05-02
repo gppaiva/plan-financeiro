@@ -27,6 +27,7 @@ export function InvoiceDetailModal({
   const [saving, setSaving] = useState(false)
   const [redirectingItemId, setRedirectingItemId] = useState<string | null>(null)
   const [redirectPessoa, setRedirectPessoa] = useState('')
+  const [redirectValor, setRedirectValor] = useState('')
   const [redirecting, setRedirecting] = useState(false)
 
   const fetchItems = useCallback(async () => {
@@ -106,20 +107,50 @@ export function InvoiceDetailModal({
       showToast('Informe o nome da pessoa', 'error')
       return
     }
+    const valorToRedirect = parseFloat(redirectValor)
+    if (isNaN(valorToRedirect) || valorToRedirect <= 0) {
+      showToast('Valor deve ser maior que zero', 'error')
+      return
+    }
+    if (valorToRedirect > Number(item.valor)) {
+      showToast('Valor não pode ser maior que o valor do item', 'error')
+      return
+    }
     setRedirecting(true)
     try {
+      // 1. Create third-party expense
       const { error } = await supabase.from('third_party_expenses').insert({
         user_id: expense.user_id,
         pessoa: redirectPessoa.trim(),
         descricao: item.descricao,
-        valor: Number(item.valor),
+        valor: valorToRedirect,
         data_vencimento: expense.data_vencimento,
         status: 'pending',
       })
       if (error) throw new Error(error.message)
-      showToast(`Gasto direcionado para ${redirectPessoa.trim()}!`, 'success')
+
+      // 2. Subtract the redirected value from the invoice item
+      const newItemValor = Math.round((Number(item.valor) - valorToRedirect) * 100) / 100
+      if (newItemValor > 0) {
+        const { newTotal } = await updateInvoiceItem(item.id, expense.id, newItemValor)
+        setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, valor: newItemValor } : i))
+        onExpenseUpdated({ ...expense, valor: newTotal })
+      } else {
+        // If value becomes 0, delete the item
+        await supabase.from('invoice_items').delete().eq('id', item.id)
+        setItems((prev) => prev.filter((i) => i.id !== item.id))
+        // Recalculate total
+        const remaining = items.filter((i) => i.id !== item.id)
+        const newTotal = remaining.reduce((sum, i) => sum + Number(i.valor), 0)
+        const roundedTotal = Math.round(newTotal * 100) / 100
+        await supabase.from('expenses').update({ valor: roundedTotal }).eq('id', expense.id)
+        onExpenseUpdated({ ...expense, valor: roundedTotal })
+      }
+
+      showToast(`R$ ${valorToRedirect.toFixed(2).replace('.', ',')} direcionado para ${redirectPessoa.trim()}!`, 'success')
       setRedirectingItemId(null)
       setRedirectPessoa('')
+      setRedirectValor('')
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido'
       showToast(`Erro ao direcionar gasto: ${msg}`, 'error')
@@ -182,16 +213,14 @@ export function InvoiceDetailModal({
                   </div>
                   {/* Redirect to third party */}
                   {redirectingItemId === item.id ? (
-                    <div style={{ display: 'flex', gap: 6, marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }} onClick={(e) => e.stopPropagation()}>
                       <input
                         type="text"
                         placeholder="Nome da pessoa"
                         value={redirectPessoa}
                         onChange={(e) => setRedirectPessoa(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleRedirectToThirdParty(item); if (e.key === 'Escape') { setRedirectingItemId(null); setRedirectPessoa('') } }}
                         autoFocus
                         style={{
-                          flex: 1,
                           border: '1.5px solid var(--border)',
                           borderRadius: 8,
                           padding: '6px 10px',
@@ -201,10 +230,30 @@ export function InvoiceDetailModal({
                           outline: 'none',
                         }}
                       />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid var(--border)', borderRadius: 8, padding: '6px 10px', background: 'var(--card-bg)' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
+                        <input
+                          type="number"
+                          value={redirectValor}
+                          onChange={(e) => setRedirectValor(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') handleRedirectToThirdParty(item); if (e.key === 'Escape') { setRedirectingItemId(null); setRedirectPessoa(''); setRedirectValor('') } }}
+                          style={{
+                            flex: 1,
+                            border: 'none',
+                            outline: 'none',
+                            fontSize: 13,
+                            color: 'var(--text)',
+                            background: 'transparent',
+                            textAlign: 'right',
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', gap: 6 }}>
                       <button
                         onClick={() => handleRedirectToThirdParty(item)}
                         disabled={redirecting || !redirectPessoa.trim()}
                         style={{
+                          flex: 1,
                           padding: '6px 12px',
                           borderRadius: 8,
                           border: 'none',
@@ -220,7 +269,7 @@ export function InvoiceDetailModal({
                         {redirecting ? '...' : 'Enviar'}
                       </button>
                       <button
-                        onClick={() => { setRedirectingItemId(null); setRedirectPessoa('') }}
+                        onClick={() => { setRedirectingItemId(null); setRedirectPessoa(''); setRedirectValor('') }}
                         style={{
                           padding: '6px 8px',
                           borderRadius: 8,
@@ -233,6 +282,7 @@ export function InvoiceDetailModal({
                       >
                         ✕
                       </button>
+                      </div>
                     </div>
                   ) : (
                     <button
@@ -242,6 +292,7 @@ export function InvoiceDetailModal({
                         setRedirectingItemId(item.id)
                         setEditingItemId(null)
                         setRedirectPessoa('')
+                        setRedirectValor(String(item.valor))
                       }}
                       style={{
                         display: 'flex',
