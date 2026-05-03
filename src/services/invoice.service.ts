@@ -55,12 +55,6 @@ export async function createInvoice(
     )
 
     if (newItems.length === 0) {
-      // No new items — return existing expense
-      const { data: exp } = await supabase
-        .from(EXPENSES_TABLE)
-        .select('*')
-        .eq('id', existingExpenseId)
-        .single()
       throw new Error(`Nenhuma transação nova encontrada. Todas as ${data.items.length} transações já estão cadastradas.`)
     }
 
