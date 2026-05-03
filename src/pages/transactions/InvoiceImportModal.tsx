@@ -3,6 +3,7 @@ import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { parseC6Csv, extractCsvFromZip } from '../../lib/invoice-csv-parser'
 import type { C6ParseResult } from '../../lib/invoice-csv-parser'
+import { extractTextFromPdf, parsePdfInvoice } from '../../lib/invoice-pdf-parser'
 import { createInvoice } from '../../services/invoice.service'
 import { formatCurrency } from '../../lib/format'
 import { isMensal } from '../../lib/quinzena'
@@ -34,6 +35,7 @@ export function InvoiceImportModal({
   const [zipPassword, setZipPassword] = useState('')
   const [needsPassword, setNeedsPassword] = useState(false)
   const [zipArrayBuffer, setZipArrayBuffer] = useState<ArrayBuffer | null>(null)
+  const [pdfArrayBuffer, setPdfArrayBuffer] = useState<ArrayBuffer | null>(null)
 
   const quinzenaOptions = useMemo(() => {
     if (cicloTipo === '5_20') {
@@ -58,15 +60,29 @@ export function InvoiceImportModal({
     setNeedsPassword(false)
     setZipPassword('')
     setZipArrayBuffer(null)
+    setPdfArrayBuffer(null)
 
     const ext = file.name.split('.').pop()?.toLowerCase()
 
-    if (ext !== 'csv' && ext !== 'zip') {
-      setParseError('Apenas arquivos CSV e ZIP são aceitos')
+    if (ext !== 'csv' && ext !== 'zip' && ext !== 'pdf') {
+      setParseError('Apenas arquivos CSV, ZIP e PDF são aceitos')
       return
     }
 
     try {
+      if (ext === 'pdf') {
+        const arrayBuffer = await file.arrayBuffer()
+        setPdfArrayBuffer(arrayBuffer)
+        const text = await extractTextFromPdf(arrayBuffer)
+        const outcome = parsePdfInvoice(text)
+        if (!outcome.success) {
+          setParseError(outcome.error)
+          return
+        }
+        setParseResult(outcome.data)
+        return
+      }
+
       let csvContent: string
 
       if (ext === 'zip') {
@@ -91,15 +107,35 @@ export function InvoiceImportModal({
         setNeedsPassword(true)
         return
       }
+      if (message === 'PDF_NEEDS_PASSWORD') {
+        setNeedsPassword(true)
+        return
+      }
       setParseError(message)
     }
   }
 
   const canSubmit = parseResult && dataVencimento && !submitting
 
-  const handleUnlockZip = async () => {
-    if (!zipArrayBuffer || !zipPassword) return
+  const handleUnlock = async () => {
+    if (!zipPassword) return
     setParseError(null)
+
+    if (pdfArrayBuffer) {
+      try {
+        const text = await extractTextFromPdf(pdfArrayBuffer, zipPassword)
+        const outcome = parsePdfInvoice(text)
+        if (!outcome.success) { setParseError(outcome.error); return }
+        setParseResult(outcome.data)
+        setNeedsPassword(false)
+        setParseError(null)
+      } catch (err) {
+        setParseError(err instanceof Error ? err.message : 'Erro ao processar arquivo')
+      }
+      return
+    }
+
+    if (!zipArrayBuffer) return
     try {
       const csvContent = await extractCsvFromZip(zipArrayBuffer, zipPassword)
       const outcome = parseC6Csv(csvContent)
@@ -154,6 +190,7 @@ export function InvoiceImportModal({
     setNeedsPassword(false)
     setZipPassword('')
     setZipArrayBuffer(null)
+    setPdfArrayBuffer(null)
     onClose()
   }
 
@@ -199,7 +236,7 @@ export function InvoiceImportModal({
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {/* File upload */}
         <div>
-          <label style={labelStyle}>Arquivo CSV ou ZIP</label>
+          <label style={labelStyle}>Arquivo CSV, ZIP ou PDF</label>
           <div style={inputWrapStyle}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -210,7 +247,7 @@ export function InvoiceImportModal({
               {fileName || 'Selecionar arquivo...'}
               <input
                 type="file"
-                accept=".csv,.zip"
+                accept=".csv,.zip,.pdf"
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
               />
@@ -234,7 +271,7 @@ export function InvoiceImportModal({
         {/* ZIP password */}
         {needsPassword && (
           <div>
-            <label style={labelStyle}>Senha do arquivo ZIP</label>
+            <label style={labelStyle}>Senha do arquivo</label>
             <div style={{ display: 'flex', gap: 8 }}>
               <div style={{ ...inputWrapStyle, flex: 1 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -243,15 +280,15 @@ export function InvoiceImportModal({
                 </svg>
                 <input
                   type="password"
-                  placeholder="Digite a senha do ZIP"
+                  placeholder="Digite a senha do arquivo"
                   value={zipPassword}
                   onChange={(e) => setZipPassword(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleUnlockZip() }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleUnlock() }}
                   style={inputStyle}
                 />
               </div>
               <button
-                onClick={handleUnlockZip}
+                onClick={handleUnlock}
                 disabled={!zipPassword}
                 style={{
                   padding: '14px 20px',

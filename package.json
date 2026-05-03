@@ -1,7 +1,7 @@
 {
   "name": "plan-financeiro-kiro",
   "private": true,
-  "version": "1.0.25",
+  "version": "1.0.26",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.104.1",
     "@zip.js/zip.js": "^2.8.26",
     "jszip": "^3.10.1",
+    "pdfjs-dist": "^5.7.284",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-router-dom": "^7.14.2",

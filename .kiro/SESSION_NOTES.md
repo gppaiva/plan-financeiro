@@ -198,3 +198,15 @@ Ao iniciar nova sessão, pedir para ler:
 ### Migrations Pendentes (rodar no Supabase)
 - `010_invoice_items.sql` — tabela de itens de fatura
 - `011_third_party_invoice_link.sql` — link terceiro → item de fatura
+
+### 23. Parsing de PDF de Fatura (Fase 2)
+- Biblioteca `pdfjs-dist` para extração de texto do PDF
+- Suporte a PDF protegido com senha (mesmo fluxo do ZIP)
+- Parsers por banco: Bradesco, C6, e genérico (fallback)
+- Regex: `DD/MM DESCRICAO VALOR` para identificar transações
+- Filtra pagamentos/créditos (PAGAMENTO, PGTO, CRÉDITO, ESTORNO)
+- Extrai parcelas da descrição (ex: "1/3")
+- Detecta ano da fatura pelo campo "Vencimento" no header
+- Modal aceita `.csv`, `.zip` e `.pdf`
+- Campo de senha genérico "Senha do arquivo" (funciona pra ZIP e PDF)
+- Arquivo: `src/lib/invoice-pdf-parser.ts`
