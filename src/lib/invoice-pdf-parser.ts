@@ -1,8 +1,8 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import type { C6InvoiceItem, C6ParseResult, C6ParseOutcome } from './invoice-csv-parser'
 
-// Set worker source for pdf.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+// Set worker source for pdf.js — use unpkg CDN which has all versions
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
 
 /**
  * Extracts all text content from a PDF file.
