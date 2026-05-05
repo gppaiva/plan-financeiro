@@ -18,23 +18,38 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 2.5 }) // scale 2.5 balances quality and performance
 
-    // Create canvas and render page
-    const canvas = document.createElement('canvas')
-    canvas.width = viewport.width
-    canvas.height = viewport.height
-    const ctx = canvas.getContext('2d')!
+    // Try multiple scales if OCR fails on a page
+    let pageText = ''
+    const scales = [2.5, 2, 3, 1.5]
 
-    await page.render({ canvasContext: ctx, viewport, canvas }).promise
+    for (const scale of scales) {
+      const viewport = page.getViewport({ scale })
 
-    // Run OCR on the canvas with optimized settings for table/invoice PDFs
-    const { data } = await Tesseract.recognize(canvas, 'por', {
-      logger: () => {}, // Suppress progress logs
-    })
+      // Create canvas and render page
+      const canvas = document.createElement('canvas')
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      const ctx = canvas.getContext('2d')!
 
-    console.log(`[OCR] Page ${i}: ${data.text.split('\n').length} lines, ${data.text.length} chars`)
-    pages.push(data.text)
+      await page.render({ canvasContext: ctx, viewport, canvas }).promise
+
+      // Run OCR on the canvas with optimized settings for table/invoice PDFs
+      const { data } = await Tesseract.recognize(canvas, 'por', {
+        logger: () => {}, // Suppress progress logs
+      })
+
+      pageText = data.text
+      console.log(`[OCR] Page ${i} (scale ${scale}): ${data.text.split('\n').length} lines, ${data.text.length} chars`)
+
+      // If we got meaningful text, stop trying other scales
+      if (data.text.trim().length > 20) {
+        break
+      }
+      console.log(`[OCR] Page ${i} (scale ${scale}): too short, retrying with different scale...`)
+    }
+
+    pages.push(pageText)
   }
 
   return pages.join('\n')
@@ -247,8 +262,8 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
     const line = rawLine.replace(/\s+/g, ' ').trim()
     if (!line) continue
 
-    // Find DD/MM date anywhere in the line (OCR may add chars before the date)
-    const dateMatch = line.match(/(\d{2}\/\d{2})\s+/)
+    // Find DD/MM date anywhere in the line (OCR may add chars like º, °, or spaces after date)
+    const dateMatch = line.match(/(\d{2}\/\d{2})[º°]?\s+/)
     if (!dateMatch) continue
 
     const dateStr = dateMatch[1]
