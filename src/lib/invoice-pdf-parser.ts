@@ -28,7 +28,14 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
       pages.push(pageText)
     }
 
-    return pages.join('\n')
+    const fullText = pages.join('\n')
+
+    // If text is empty or very short, the PDF might be encrypted without throwing an error
+    if (fullText.trim().length < 20 && !password) {
+      throw new Error('PDF_NEEDS_PASSWORD')
+    }
+
+    return fullText
   } catch (err: unknown) {
     const error = err as { name?: string; message?: string }
     if (error.name === 'PasswordException' || error.message?.includes('password')) {
