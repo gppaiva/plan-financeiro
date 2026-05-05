@@ -75,6 +75,8 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
       const textContent = await page.getTextContent()
+      const viewport = page.getViewport({ scale: 1 })
+      const pageWidth = viewport.width
 
       // Group text items by their Y position to reconstruct lines properly
       // This is critical for PDFs where text is positioned absolutely (like Bradesco)
@@ -88,6 +90,10 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
         continue
       }
 
+      // For multi-column PDFs (like Bradesco full invoice), only use left ~60% of page
+      // This avoids picking up tax tables, limits, and other info from the right column
+      const maxX = pageWidth * 0.62
+
       // Group by Y coordinate (transform[5] is the Y position)
       // Items on the same line have similar Y values (within 2px tolerance)
       const lineMap = new Map<number, { x: number; text: string }[]>()
@@ -95,6 +101,9 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
       for (const item of items) {
         const y = Math.round(item.transform[5]) // Round Y to group nearby items
         const x = item.transform[4] // X position for ordering
+
+        // Skip items from the right column (tax tables, limits, etc.)
+        if (x > maxX) continue
 
         // Find existing line within tolerance
         let foundY: number | null = null
@@ -282,11 +291,11 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
     if (/cart[aã]o\s+\d{4}/i.test(line)) continue
 
     // Find ALL R$ values in the line — format: R$ 260,10 or R$ 10.451,85 or R$260,10
-    // Also handle negative values like -10.451,85 or R$ -10.451,85
+    // Also handle negative values like -10.451,85 or R$ -10.451,85 or 8,32- (Bradesco format)
     const rValues: { value: number; negative: boolean }[] = []
 
     // Match patterns: "R$ 260,10", "R$ 10.451,85", "R$260,10", "RS 260,10" (OCR misread)
-    const rMatches = line.matchAll(/R[\$S]\s*(-?)([\d.]+,\d{2})/gi)
+    const rMatches = line.matchAll(/R[\$S]\s*(-?)([\d.]+,\d{2})\b/gi)
     for (const m of rMatches) {
       const isNeg = m[1] === '-'
       const val = parseBrDecimal(m[2])
@@ -297,11 +306,13 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
 
     // If no R$ prefix found, try to find the last decimal number on the line
     if (rValues.length === 0) {
-      const valueMatches = line.match(/-?[\d.]+,\d{2}/g)
+      // Match numbers with exactly 2 decimal places (not 4 like exchange rates 5,4800)
+      const valueMatches = line.match(/-?[\d.]+,\d{2}(?!\d)-?/g)
       if (valueMatches && valueMatches.length > 0) {
         const lastVal = valueMatches[valueMatches.length - 1]
-        const isNeg = lastVal.startsWith('-')
-        const cleanVal = lastVal.replace(/^-/, '')
+        // Negative can be prefix (-348,08) or suffix (8,32-)
+        const isNeg = lastVal.startsWith('-') || lastVal.endsWith('-')
+        const cleanVal = lastVal.replace(/^-|-$/g, '')
         const val = parseBrDecimal(cleanVal)
         if (!isNaN(val)) {
           rValues.push({ value: val, negative: isNeg })
