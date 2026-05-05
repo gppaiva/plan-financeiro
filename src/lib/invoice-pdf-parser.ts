@@ -381,7 +381,19 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
  */
 function parseBradescoPdf(text: string): C6ParseOutcome {
   const year = extractYear(text)
+
+  // Debug: temporarily log to understand what's being parsed
+  console.log('[Bradesco] Text length:', text.length)
+  const lines = text.split('\n')
+  console.log('[Bradesco] Total lines:', lines.length)
+  lines.filter(l => /\d{2}\/\d{2}/.test(l)).forEach((l, i) => {
+    console.log(`[Bradesco] DateLine ${i}:`, l.substring(0, 150))
+  })
+
   const items = parseTransactionLines(text, year, 'Bradesco')
+
+  console.log('[Bradesco] Items found:', items.length)
+  items.forEach(item => console.log(`[Bradesco] Item: ${item.descricao} = ${item.valorBrl}`))
 
   if (items.length === 0) {
     return { success: false, error: 'Nenhuma compra encontrada na fatura Bradesco' }
