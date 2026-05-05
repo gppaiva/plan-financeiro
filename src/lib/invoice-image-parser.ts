@@ -1,5 +1,5 @@
 import Tesseract from 'tesseract.js'
-import type { C6InvoiceItem, C6ParseResult, C6ParseOutcome } from './invoice-csv-parser'
+import type { C6InvoiceItem, C6ParseOutcome } from './invoice-csv-parser'
 
 /**
  * Runs OCR on a single image file and returns the extracted text.
