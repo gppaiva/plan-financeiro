@@ -1,9 +1,41 @@
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
+import Tesseract from 'tesseract.js'
 import type { C6InvoiceItem, C6ParseResult, C6ParseOutcome } from './invoice-csv-parser'
 
 // Set worker source for pdf.js — use bundled worker via Vite URL import
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
+
+/**
+ * Extracts text from PDF pages using OCR (Tesseract.js).
+ * Renders each page to a canvas and runs OCR on the image.
+ * This is slower but works for image-based/scanned PDFs.
+ */
+async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<string> {
+  const pages: string[] = []
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const viewport = page.getViewport({ scale: 2 }) // Higher scale = better OCR
+
+    // Create canvas and render page
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')!
+
+    await page.render({ canvasContext: ctx, viewport }).promise
+
+    // Run OCR on the canvas
+    const { data } = await Tesseract.recognize(canvas, 'por', {
+      logger: () => {}, // Suppress progress logs
+    })
+
+    pages.push(data.text)
+  }
+
+  return pages.join('\n')
+}
 
 /**
  * Extracts all text content from a PDF file.
@@ -31,13 +63,14 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
 
     const fullText = pages.join('\n')
 
-    // If text is empty or very short, the PDF might not contain extractable text
+    // If text is empty or very short, try OCR as fallback
     if (fullText.trim().length < 20) {
-      if (!password) {
-        // Try without assuming it needs password — might be an image-based PDF
-        throw new Error('Não foi possível extrair texto do PDF. O arquivo pode ser baseado em imagens (escaneado) ou estar protegido com senha. Tente usar o arquivo CSV.')
+      // Use OCR to extract text from PDF pages rendered as images
+      const ocrText = await extractTextWithOcr(pdf)
+      if (ocrText.trim().length < 20) {
+        throw new Error('Não foi possível extrair texto do PDF. O arquivo pode estar corrompido.')
       }
-      throw new Error('Não foi possível extrair texto do PDF mesmo com a senha informada. O arquivo pode ser baseado em imagens.')
+      return ocrText
     }
 
     return fullText

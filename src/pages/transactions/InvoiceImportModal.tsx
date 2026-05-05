@@ -36,6 +36,7 @@ export function InvoiceImportModal({
   const [needsPassword, setNeedsPassword] = useState(false)
   const [zipArrayBuffer, setZipArrayBuffer] = useState<ArrayBuffer | null>(null)
   const [pdfArrayBuffer, setPdfArrayBuffer] = useState<ArrayBuffer | null>(null)
+  const [processing, setProcessing] = useState(false)
 
   const quinzenaOptions = useMemo(() => {
     if (cicloTipo === '5_20') {
@@ -73,13 +74,18 @@ export function InvoiceImportModal({
       if (ext === 'pdf') {
         const arrayBuffer = await file.arrayBuffer()
         setPdfArrayBuffer(arrayBuffer)
-        const text = await extractTextFromPdf(arrayBuffer)
-        const outcome = parsePdfInvoice(text)
-        if (!outcome.success) {
-          setParseError(outcome.error)
-          return
+        setProcessing(true)
+        try {
+          const text = await extractTextFromPdf(arrayBuffer)
+          const outcome = parsePdfInvoice(text)
+          if (!outcome.success) {
+            setParseError(outcome.error)
+            return
+          }
+          setParseResult(outcome.data)
+        } finally {
+          setProcessing(false)
         }
-        setParseResult(outcome.data)
         return
       }
 
@@ -191,6 +197,7 @@ export function InvoiceImportModal({
     setZipPassword('')
     setZipArrayBuffer(null)
     setPdfArrayBuffer(null)
+    setProcessing(false)
     onClose()
   }
 
@@ -254,6 +261,24 @@ export function InvoiceImportModal({
             </label>
           </div>
         </div>
+
+        {/* Processing indicator */}
+        {processing && (
+          <div style={{
+            padding: '16px',
+            borderRadius: 12,
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            textAlign: 'center',
+          }}>
+            <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, fontWeight: 500 }}>
+              Processando PDF...
+            </p>
+            <p style={{ fontSize: 12, color: 'var(--text2)', margin: '4px 0 0' }}>
+              Isso pode levar alguns segundos
+            </p>
+          </div>
+        )}
 
         {/* Parse error */}
         {parseError && (
