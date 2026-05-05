@@ -14,9 +14,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<string> {
   const pages: string[] = []
 
+  console.log('[OCR] Total pages in PDF:', pdf.numPages)
+
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 3 }) // Higher scale = better OCR accuracy
+    const viewport = page.getViewport({ scale: 2.5 }) // scale 2.5 balances quality and performance
 
     // Create canvas and render page
     const canvas = document.createElement('canvas')
@@ -26,11 +28,12 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
 
     await page.render({ canvasContext: ctx, viewport, canvas }).promise
 
-    // Run OCR on the canvas
+    // Run OCR on the canvas with optimized settings for table/invoice PDFs
     const { data } = await Tesseract.recognize(canvas, 'por', {
       logger: () => {}, // Suppress progress logs
     })
 
+    console.log(`[OCR] Page ${i}: ${data.text.split('\n').length} lines, ${data.text.length} chars`)
     pages.push(data.text)
   }
 
@@ -110,10 +113,12 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
 
     // Debug: log extracted text to console for troubleshooting
     console.log('[PDF Parser] Extracted text length:', fullText.length)
-    console.log('[PDF Parser] First 2000 chars:', fullText.substring(0, 2000))
+    console.log('[PDF Parser] Text content preview:', fullText.substring(0, 500))
 
     // If text is empty or very short, try OCR as fallback
-    if (fullText.trim().length < 20) {
+    // Threshold: less than 100 chars means the PDF is likely image-based
+    if (fullText.trim().length < 100) {
+      console.log('[PDF Parser] Text too short, falling back to OCR...')
       // Use OCR to extract text from PDF pages rendered as images
       const ocrText = await extractTextWithOcr(pdf)
       if (ocrText.trim().length < 20) {
@@ -252,6 +257,8 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
     // Skip lines that are just headers or "Total para:" lines
     if (/total\s+para/i.test(line)) continue
     if (/^data\b/i.test(line.trim())) continue
+    // Skip the header line "Data: DD/MM/YYYY"
+    if (/data[:\s]+\d{2}\/\d{2}\/\d{4}/i.test(line)) continue
 
     // Find ALL R$ values in the line — format: R$ 260,10 or R$ 10.451,85 or R$260,10
     // Also handle negative values like -10.451,85 or R$ -10.451,85
@@ -291,6 +298,8 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
 
     // Extract description: text between date and the first "USD" or "R$" or numeric column
     let descricao = afterDate
+    // Remove leading dash/em-dash that OCR may add (from table borders)
+    descricao = descricao.replace(/^[\s\-–—]+/, '').trim()
     // Remove from "USD" onwards
     descricao = descricao.replace(/\s+USD.*$/i, '').trim()
     // Remove from "R$" or "RS" (OCR) onwards
