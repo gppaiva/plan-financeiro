@@ -173,14 +173,18 @@ function parseTransactionLines(text: string, year: number, banco: string): C6Inv
 
     const [, dateStr, descricao, valorStr] = match
 
-    // Skip payment/credit lines
+    // Skip payment/credit/balance lines
     const upperDesc = descricao.toUpperCase()
     if (
       upperDesc.includes('PAGAMENTO') ||
       upperDesc.includes('PGTO') ||
       upperDesc.includes('CRÉDITO') ||
       upperDesc.includes('CREDITO') ||
-      upperDesc.includes('ESTORNO')
+      upperDesc.includes('ESTORNO') ||
+      upperDesc.includes('SALDO ANTERIOR') ||
+      upperDesc.includes('SALDO') ||
+      upperDesc.includes('DEB EM C/C') ||
+      upperDesc.includes('POR DEB')
     ) {
       continue
     }
@@ -304,14 +308,18 @@ function parseGenericPdf(text: string): C6ParseOutcome {
 
     if (!dateStr || !descricao || !valorStr) continue
 
-    // Skip payment/credit lines
+    // Skip payment/credit/balance lines
     const upperDesc = descricao.toUpperCase()
     if (
       upperDesc.includes('PAGAMENTO') ||
       upperDesc.includes('PGTO') ||
       upperDesc.includes('CRÉDITO') ||
       upperDesc.includes('CREDITO') ||
-      upperDesc.includes('ESTORNO')
+      upperDesc.includes('ESTORNO') ||
+      upperDesc.includes('SALDO ANTERIOR') ||
+      upperDesc.includes('SALDO') ||
+      upperDesc.includes('DEB EM C/C') ||
+      upperDesc.includes('POR DEB')
     ) {
       continue
     }
