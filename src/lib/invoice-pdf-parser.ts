@@ -1,8 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist'
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 import type { C6InvoiceItem, C6ParseResult, C6ParseOutcome } from './invoice-csv-parser'
 
-// Set worker source for pdf.js — use unpkg CDN which has all versions
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
+// Set worker source for pdf.js — use bundled worker via Vite URL import
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 /**
  * Extracts all text content from a PDF file.
@@ -30,9 +31,13 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
 
     const fullText = pages.join('\n')
 
-    // If text is empty or very short, the PDF might be encrypted without throwing an error
-    if (fullText.trim().length < 20 && !password) {
-      throw new Error('PDF_NEEDS_PASSWORD')
+    // If text is empty or very short, the PDF might not contain extractable text
+    if (fullText.trim().length < 20) {
+      if (!password) {
+        // Try without assuming it needs password — might be an image-based PDF
+        throw new Error('Não foi possível extrair texto do PDF. O arquivo pode ser baseado em imagens (escaneado) ou estar protegido com senha. Tente usar o arquivo CSV.')
+      }
+      throw new Error('Não foi possível extrair texto do PDF mesmo com a senha informada. O arquivo pode ser baseado em imagens.')
     }
 
     return fullText
