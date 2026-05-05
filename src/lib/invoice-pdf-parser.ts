@@ -154,24 +154,42 @@ function parseBrDecimal(value: string): number {
 
 /**
  * Main regex-based line parser for PDF invoice lines.
- * Matches lines like: DD/MM  DESCRIPTION  1.234,56
+ * Matches lines like: DD/MM  DESCRIPTION  ... R$ VALUE
+ * For Bradesco: DD/MM  DESCRIPTION  USD 0,00  R$ 0,00  R$ 260,10
+ * Captures the LAST numeric value on the line as the BRL amount.
  */
 function parseTransactionLines(text: string, year: number, banco: string): C6InvoiceItem[] {
   const items: C6InvoiceItem[] = []
   const lines = text.split(/\n/)
-
-  // Pattern: DD/MM followed by description and a value at the end
-  const lineRegex = /^(\d{2}\/\d{2})\s+(.+?)\s+([\d.,]+)\s*$/
 
   for (const rawLine of lines) {
     // PDF text extraction can produce lines with extra spaces; normalize
     const line = rawLine.replace(/\s+/g, ' ').trim()
     if (!line) continue
 
-    const match = line.match(lineRegex)
-    if (!match) continue
+    // Must start with DD/MM date
+    const dateMatch = line.match(/^(\d{2}\/\d{2})\s+/)
+    if (!dateMatch) continue
 
-    const [, dateStr, descricao, valorStr] = match
+    const dateStr = dateMatch[1]
+
+    // Find ALL numeric values in the line (format: 1.234,56 or 1234,56 or 260,10 or 427.98)
+    const valueMatches = line.match(/[\d]+[.,][\d]{2}/g)
+    if (!valueMatches || valueMatches.length === 0) continue
+
+    // The last value is the R$ amount
+    const lastValueStr = valueMatches[valueMatches.length - 1]
+    const valor = parseBrDecimal(lastValueStr)
+    if (isNaN(valor) || valor <= 0) continue
+
+    // Extract description: everything between the date and the first "USD" or "R$" or the value columns
+    let descricao = line.substring(dateMatch[0].length)
+    // Remove everything from "USD" onwards, or from "R$" onwards, or from the value pattern
+    descricao = descricao.replace(/\s+(USD|R\$|Moeda).*$/i, '').trim()
+    // If still has numbers at the end, remove them
+    descricao = descricao.replace(/\s+[\d.,]+\s*$/, '').trim()
+
+    if (!descricao || descricao.length < 2) continue
 
     // Skip payment/credit/balance lines
     const upperDesc = descricao.toUpperCase()
@@ -184,13 +202,13 @@ function parseTransactionLines(text: string, year: number, banco: string): C6Inv
       upperDesc.includes('SALDO ANTERIOR') ||
       upperDesc.includes('SALDO') ||
       upperDesc.includes('DEB EM C/C') ||
-      upperDesc.includes('POR DEB')
+      upperDesc.includes('POR DEB') ||
+      upperDesc.includes('TOTAL PARA') ||
+      upperDesc.includes('HISTÓRICO') ||
+      upperDesc.includes('HISTORICO')
     ) {
       continue
     }
-
-    const valor = parseBrDecimal(valorStr)
-    if (isNaN(valor) || valor <= 0) continue
 
     // Build ISO date from DD/MM + year
     const [day, month] = dateStr.split('/')
