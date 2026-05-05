@@ -55,13 +55,62 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i)
       const textContent = await page.getTextContent()
-      const pageText = textContent.items
-        .map((item) => ('str' in item ? item.str : ''))
-        .join(' ')
-      pages.push(pageText)
+
+      // Group text items by their Y position to reconstruct lines properly
+      // This is critical for PDFs where text is positioned absolutely (like Bradesco)
+      const items = textContent.items.filter(
+        (item): item is typeof item & { str: string; transform: number[] } =>
+          'str' in item && 'transform' in item && item.str.trim().length > 0,
+      )
+
+      if (items.length === 0) {
+        pages.push('')
+        continue
+      }
+
+      // Group by Y coordinate (transform[5] is the Y position)
+      // Items on the same line have similar Y values (within 2px tolerance)
+      const lineMap = new Map<number, { x: number; text: string }[]>()
+
+      for (const item of items) {
+        const y = Math.round(item.transform[5]) // Round Y to group nearby items
+        const x = item.transform[4] // X position for ordering
+
+        // Find existing line within tolerance
+        let foundY: number | null = null
+        for (const existingY of lineMap.keys()) {
+          if (Math.abs(existingY - y) <= 3) {
+            foundY = existingY
+            break
+          }
+        }
+
+        const targetY = foundY ?? y
+        if (!lineMap.has(targetY)) {
+          lineMap.set(targetY, [])
+        }
+        lineMap.get(targetY)!.push({ x, text: item.str })
+      }
+
+      // Sort lines by Y (descending because PDF Y goes bottom-to-top)
+      const sortedLines = [...lineMap.entries()]
+        .sort(([a], [b]) => b - a)
+        .map(([, items]) => {
+          // Sort items within a line by X position (left to right)
+          return items
+            .sort((a, b) => a.x - b.x)
+            .map((item) => item.text)
+            .join(' ')
+        })
+
+      pages.push(sortedLines.join('\n'))
     }
 
     const fullText = pages.join('\n')
+
+    // Debug: log extracted text to console for troubleshooting
+    console.log('[PDF Parser] Extracted text length:', fullText.length)
+    console.log('[PDF Parser] First 2000 chars:', fullText.substring(0, 2000))
 
     // If text is empty or very short, try OCR as fallback
     if (fullText.trim().length < 20) {
@@ -302,7 +351,19 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
  */
 function parseBradescoPdf(text: string): C6ParseOutcome {
   const year = extractYear(text)
+
+  // Debug: log lines that contain dates to help troubleshoot
+  const lines = text.split(/\n/)
+  const dateLines = lines.filter((l) => /\d{2}\/\d{2}/.test(l))
+  console.log('[Bradesco Parser] Total lines:', lines.length)
+  console.log('[Bradesco Parser] Lines with dates:', dateLines.length)
+  console.log('[Bradesco Parser] Year detected:', year)
+  dateLines.forEach((l, i) => console.log(`[Bradesco] Date line ${i}:`, l.substring(0, 120)))
+
   const items = parseTransactionLines(text, year, 'Bradesco')
+
+  console.log('[Bradesco Parser] Items found:', items.length)
+  items.forEach((item) => console.log(`[Bradesco] Item: ${item.descricao} = ${item.valorBrl}`))
 
   if (items.length === 0) {
     return { success: false, error: 'Nenhuma compra encontrada na fatura Bradesco' }
