@@ -7,34 +7,8 @@ import type { C6InvoiceItem, C6ParseResult, C6ParseOutcome } from './invoice-csv
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
 /**
- * Pre-processes a canvas image for better OCR results.
- * Converts to grayscale and applies threshold (binarization)
- * to create high-contrast black text on white background.
- */
-function preprocessCanvasForOcr(canvas: HTMLCanvasElement): HTMLCanvasElement {
-  const ctx = canvas.getContext('2d')!
-  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-  const data = imageData.data
-
-  // Convert to grayscale and apply threshold
-  for (let i = 0; i < data.length; i += 4) {
-    // Grayscale using luminance formula
-    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
-    // Threshold: anything darker than 140 becomes black, rest becomes white
-    const bw = gray < 140 ? 0 : 255
-    data[i] = bw     // R
-    data[i + 1] = bw // G
-    data[i + 2] = bw // B
-    // Alpha stays the same
-  }
-
-  ctx.putImageData(imageData, 0, 0)
-  return canvas
-}
-
-/**
  * Extracts text from PDF pages using OCR (Tesseract.js).
- * Renders each page to a canvas, preprocesses for contrast, and runs OCR.
+ * Renders each page to a canvas and runs OCR on the image.
  * This is slower but works for image-based/scanned PDFs.
  */
 async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<string> {
@@ -45,17 +19,12 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
 
-    // Try with preprocessing first (best for invoices), then without
+    // Try different scales — some PDFs read better at different resolutions
     let bestText = ''
-    const attempts = [
-      { scale: 3, preprocess: true },
-      { scale: 2, preprocess: true },
-      { scale: 2.5, preprocess: false },
-      { scale: 2, preprocess: false },
-    ]
+    const scales = [2, 2.5, 3]
 
-    for (const attempt of attempts) {
-      const viewport = page.getViewport({ scale: attempt.scale })
+    for (const scale of scales) {
+      const viewport = page.getViewport({ scale })
 
       // Create canvas and render page
       const canvas = document.createElement('canvas')
@@ -65,28 +34,24 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
 
       await page.render({ canvasContext: ctx, viewport, canvas }).promise
 
-      // Optionally preprocess for better OCR
-      if (attempt.preprocess) {
-        preprocessCanvasForOcr(canvas)
-      }
-
       // Run OCR on the canvas
       const { data } = await Tesseract.recognize(canvas, 'por', {
         logger: () => {}, // Suppress progress logs
       })
 
       const lineCount = data.text.split('\n').filter((l: string) => l.trim()).length
-      console.log(`[OCR] Page ${i} (scale ${attempt.scale}, preprocess=${attempt.preprocess}): ${lineCount} lines, ${data.text.length} chars`)
+      const dateCount = (data.text.match(/\d{2}\/\d{2}/g) || []).length
+      console.log(`[OCR] Page ${i} (scale ${scale}): ${lineCount} lines, ${data.text.length} chars, ${dateCount} dates`)
 
-      // Keep the result with the most content
-      if (data.text.length > bestText.length) {
+      // Keep the result with the most dates (most relevant for invoices)
+      const bestDateCount = (bestText.match(/\d{2}\/\d{2}/g) || []).length
+      if (dateCount > bestDateCount || (dateCount === bestDateCount && data.text.length > bestText.length)) {
         bestText = data.text
       }
 
-      // If we got good results (many lines with dates), stop trying
-      const dateCount = (data.text.match(/\d{2}\/\d{2}/g) || []).length
-      if (dateCount >= 5 || lineCount >= 15) {
-        console.log(`[OCR] Page ${i}: good result with ${dateCount} dates, stopping`)
+      // If we got a good result, stop trying
+      if (dateCount >= 8) {
+        console.log(`[OCR] Page ${i}: excellent result, stopping`)
         break
       }
     }
