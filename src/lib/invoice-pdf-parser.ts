@@ -233,10 +233,17 @@ function shouldSkipDescription(descricao: string): boolean {
     upper.includes('DEB EM C/C') ||
     upper.includes('POR DEB') ||
     upper.includes('TOTAL PARA') ||
+    upper.includes('TOTAL DA FATURA') ||
     upper.includes('HISTÓRICO') ||
     upper.includes('HISTORICO') ||
     upper.includes('ENCARGOS') ||
     upper.includes('ANUIDADE') ||
+    upper.includes('CUSTO TRANS') ||
+    upper.includes('EXTERIOR-IOF') ||
+    upper.includes('IOF') ||
+    upper.includes('GUSTAVO PEREIRA') ||
+    upper.includes('LANCAMENTOS') ||
+    upper.includes('LANÇAMENTOS') ||
     // Match "SALDO" only when it's a standalone word (not part of store names)
     /\bSALDO\b/.test(upper)
   )
@@ -267,9 +274,12 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
 
     // Skip lines that are just headers or "Total para:" lines
     if (/total\s+para/i.test(line)) continue
+    if (/total\s+da\s+fatura/i.test(line)) continue
     if (/^data\b/i.test(line.trim())) continue
     // Skip the header line "Data: DD/MM/YYYY"
     if (/data[:\s]+\d{2}\/\d{2}\/\d{4}/i.test(line)) continue
+    // Skip "Cartão 4066" header lines
+    if (/cart[aã]o\s+\d{4}/i.test(line)) continue
 
     // Find ALL R$ values in the line — format: R$ 260,10 or R$ 10.451,85 or R$260,10
     // Also handle negative values like -10.451,85 or R$ -10.451,85
