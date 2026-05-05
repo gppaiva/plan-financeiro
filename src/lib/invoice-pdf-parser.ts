@@ -16,7 +16,7 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
 
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
-    const viewport = page.getViewport({ scale: 2 }) // Higher scale = better OCR
+    const viewport = page.getViewport({ scale: 3 }) // Higher scale = better OCR accuracy
 
     // Create canvas and render page
     const canvas = document.createElement('canvas')
@@ -24,7 +24,7 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
     canvas.height = viewport.height
     const ctx = canvas.getContext('2d')!
 
-    await page.render({ canvasContext: ctx, viewport }).promise
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise
 
     // Run OCR on the canvas
     const { data } = await Tesseract.recognize(canvas, 'por', {
@@ -153,62 +153,108 @@ function parseBrDecimal(value: string): number {
 }
 
 /**
- * Main regex-based line parser for PDF invoice lines.
- * Matches lines like: DD/MM  DESCRIPTION  ... R$ VALUE
- * For Bradesco: DD/MM  DESCRIPTION  USD 0,00  R$ 0,00  R$ 260,10
- * Captures the LAST numeric value on the line as the BRL amount.
+ * Checks if a description should be skipped (payments, credits, balance lines).
+ * Used by all parsers.
  */
-function parseTransactionLines(text: string, year: number, banco: string): C6InvoiceItem[] {
+function shouldSkipDescription(descricao: string): boolean {
+  const upper = descricao.toUpperCase()
+  return (
+    upper.includes('PAGAMENTO') ||
+    upper.includes('PGTO') ||
+    upper.includes('CRÉDITO') ||
+    upper.includes('CREDITO') ||
+    upper.includes('ESTORNO') ||
+    upper.includes('SALDO ANTERIOR') ||
+    upper.includes('DEB EM C/C') ||
+    upper.includes('POR DEB') ||
+    upper.includes('TOTAL PARA') ||
+    upper.includes('HISTÓRICO') ||
+    upper.includes('HISTORICO') ||
+    upper.includes('ENCARGOS') ||
+    upper.includes('ANUIDADE') ||
+    // Match "SALDO" only when it's a standalone word (not part of store names)
+    /\bSALDO\b/.test(upper)
+  )
+}
+
+/**
+ * Main regex-based line parser for PDF invoice lines.
+ * Matches lines that contain a DD/MM date followed by a description and values.
+ * For Bradesco: DD/MM  DESCRIPTION  USD 0,00  R$ 0,00  R$ 260,10
+ * Captures the LAST positive R$ value on the line as the BRL amount.
+ * Handles multiple card blocks in the same PDF.
+ */
+function parseTransactionLines(text: string, year: number, _banco: string): C6InvoiceItem[] {
   const items: C6InvoiceItem[] = []
   const lines = text.split(/\n/)
 
   for (const rawLine of lines) {
-    // PDF text extraction can produce lines with extra spaces; normalize
+    // PDF text extraction / OCR can produce lines with extra spaces; normalize
     const line = rawLine.replace(/\s+/g, ' ').trim()
     if (!line) continue
 
-    // Must start with DD/MM date
-    const dateMatch = line.match(/^(\d{2}\/\d{2})\s+/)
+    // Find DD/MM date anywhere in the line (OCR may add chars before the date)
+    const dateMatch = line.match(/(\d{2}\/\d{2})\s+/)
     if (!dateMatch) continue
 
     const dateStr = dateMatch[1]
+    const afterDate = line.substring(line.indexOf(dateMatch[0]) + dateMatch[0].length)
 
-    // Find ALL numeric values in the line (format: 1.234,56 or 1234,56 or 260,10 or 427.98)
-    const valueMatches = line.match(/[\d]+[.,][\d]{2}/g)
-    if (!valueMatches || valueMatches.length === 0) continue
+    // Skip lines that are just headers or "Total para:" lines
+    if (/total\s+para/i.test(line)) continue
+    if (/^data\b/i.test(line.trim())) continue
 
-    // The last value is the R$ amount
-    const lastValueStr = valueMatches[valueMatches.length - 1]
-    const valor = parseBrDecimal(lastValueStr)
-    if (isNaN(valor) || valor <= 0) continue
+    // Find ALL R$ values in the line — format: R$ 260,10 or R$ 10.451,85 or R$260,10
+    // Also handle negative values like -10.451,85 or R$ -10.451,85
+    const rValues: { value: number; negative: boolean }[] = []
 
-    // Extract description: everything between the date and the first "USD" or "R$" or the value columns
-    let descricao = line.substring(dateMatch[0].length)
-    // Remove everything from "USD" onwards, or from "R$" onwards, or from the value pattern
-    descricao = descricao.replace(/\s+(USD|R\$|Moeda).*$/i, '').trim()
-    // If still has numbers at the end, remove them
-    descricao = descricao.replace(/\s+[\d.,]+\s*$/, '').trim()
+    // Match patterns: "R$ 260,10", "R$ 10.451,85", "R$260,10", "RS 260,10" (OCR misread)
+    const rMatches = line.matchAll(/R[\$S]\s*(-?)([\d.]+,\d{2})/gi)
+    for (const m of rMatches) {
+      const isNeg = m[1] === '-'
+      const val = parseBrDecimal(m[2])
+      if (!isNaN(val)) {
+        rValues.push({ value: val, negative: isNeg })
+      }
+    }
+
+    // If no R$ prefix found, try to find the last decimal number on the line
+    if (rValues.length === 0) {
+      const valueMatches = line.match(/-?[\d.]+,\d{2}/g)
+      if (valueMatches && valueMatches.length > 0) {
+        const lastVal = valueMatches[valueMatches.length - 1]
+        const isNeg = lastVal.startsWith('-')
+        const cleanVal = lastVal.replace(/^-/, '')
+        const val = parseBrDecimal(cleanVal)
+        if (!isNaN(val)) {
+          rValues.push({ value: val, negative: isNeg })
+        }
+      }
+    }
+
+    if (rValues.length === 0) continue
+
+    // The LAST positive R$ value is the BRL amount we want
+    const positiveValues = rValues.filter((v) => !v.negative && v.value > 0)
+    if (positiveValues.length === 0) continue
+
+    const valor = positiveValues[positiveValues.length - 1].value
+
+    // Extract description: text between date and the first "USD" or "R$" or numeric column
+    let descricao = afterDate
+    // Remove from "USD" onwards
+    descricao = descricao.replace(/\s+USD.*$/i, '').trim()
+    // Remove from "R$" or "RS" (OCR) onwards
+    descricao = descricao.replace(/\s+R[\$S].*$/i, '').trim()
+    // Remove from "Moeda" onwards
+    descricao = descricao.replace(/\s+Moeda.*$/i, '').trim()
+    // Remove trailing numbers (values without R$ prefix)
+    descricao = descricao.replace(/\s+[-\d.,]+\s*$/, '').trim()
 
     if (!descricao || descricao.length < 2) continue
 
     // Skip payment/credit/balance lines
-    const upperDesc = descricao.toUpperCase()
-    if (
-      upperDesc.includes('PAGAMENTO') ||
-      upperDesc.includes('PGTO') ||
-      upperDesc.includes('CRÉDITO') ||
-      upperDesc.includes('CREDITO') ||
-      upperDesc.includes('ESTORNO') ||
-      upperDesc.includes('SALDO ANTERIOR') ||
-      upperDesc.includes('SALDO') ||
-      upperDesc.includes('DEB EM C/C') ||
-      upperDesc.includes('POR DEB') ||
-      upperDesc.includes('TOTAL PARA') ||
-      upperDesc.includes('HISTÓRICO') ||
-      upperDesc.includes('HISTORICO')
-    ) {
-      continue
-    }
+    if (shouldSkipDescription(descricao)) continue
 
     // Build ISO date from DD/MM + year
     const [day, month] = dateStr.split('/')
@@ -219,8 +265,12 @@ function parseTransactionLines(text: string, year: number, banco: string): C6Inv
     let cleanDescricao = descricao.trim()
     const parcelaMatch = cleanDescricao.match(/\s+(\d+\/\d+)\s*$/)
     if (parcelaMatch) {
-      parcela = parcelaMatch[1]
-      cleanDescricao = cleanDescricao.replace(/\s+\d+\/\d+\s*$/, '').trim()
+      // Make sure it's a parcela (small numbers) not a date
+      const [num1, num2] = parcelaMatch[1].split('/').map(Number)
+      if (num1 <= 48 && num2 <= 48 && num1 <= num2) {
+        parcela = parcelaMatch[1]
+        cleanDescricao = cleanDescricao.replace(/\s+\d+\/\d+\s*$/, '').trim()
+      }
     }
 
     items.push({
@@ -241,7 +291,14 @@ function parseTransactionLines(text: string, year: number, banco: string): C6Inv
 
 /**
  * Bradesco PDF parser.
- * Bradesco invoices have lines like: DD/MM  DESCRICAO DO ESTABELECIMENTO  VALOR
+ * Bradesco invoices have multiple card blocks, each with:
+ *   GUSTAVO P PAIVA - VISA INFINITE    XXXX.XXXX.XXXX.0197
+ *   Data | Histórico | Moeda de origem | US$ | Cotação US$ | R$
+ *   DD/MM  DESCRICAO  USD 0,00  R$ 0,00  R$ 260,10
+ *   ...
+ *   Total para: GUSTAVO P PAIVA    R$ 689,08
+ *
+ * The parser scans ALL blocks and collects all valid transactions.
  */
 function parseBradescoPdf(text: string): C6ParseOutcome {
   const year = extractYear(text)
@@ -327,20 +384,7 @@ function parseGenericPdf(text: string): C6ParseOutcome {
     if (!dateStr || !descricao || !valorStr) continue
 
     // Skip payment/credit/balance lines
-    const upperDesc = descricao.toUpperCase()
-    if (
-      upperDesc.includes('PAGAMENTO') ||
-      upperDesc.includes('PGTO') ||
-      upperDesc.includes('CRÉDITO') ||
-      upperDesc.includes('CREDITO') ||
-      upperDesc.includes('ESTORNO') ||
-      upperDesc.includes('SALDO ANTERIOR') ||
-      upperDesc.includes('SALDO') ||
-      upperDesc.includes('DEB EM C/C') ||
-      upperDesc.includes('POR DEB')
-    ) {
-      continue
-    }
+    if (shouldSkipDescription(descricao)) continue
 
     const valor = parseBrDecimal(valorStr)
     if (isNaN(valor) || valor <= 0) continue
