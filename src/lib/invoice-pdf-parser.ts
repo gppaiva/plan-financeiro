@@ -290,6 +290,9 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
     // Skip "Cartão 4066" header lines
     if (/cart[aã]o\s+\d{4}/i.test(line)) continue
 
+    // Skip lines where USD value is negative (estornos/credits) — format: "USD 8,32-"
+    if (/USD\s+[\d.,]+-/i.test(line)) continue
+
     // Find ALL R$ values in the line — format: R$ 260,10 or R$ 10.451,85 or R$260,10
     // Also handle negative values like -10.451,85 or R$ -10.451,85 or 8,32- (Bradesco format)
     const rValues: { value: number; negative: boolean }[] = []
@@ -338,6 +341,8 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
     descricao = descricao.replace(/\s+R[\$S].*$/i, '').trim()
     // Remove from "Moeda" onwards
     descricao = descricao.replace(/\s+Moeda.*$/i, '').trim()
+    // Remove trailing text that leaked from right column of PDF
+    descricao = descricao.replace(/\s+(Saque|Válido|Pagamento|Compras|com Juros|Crediário|Novo teto|Valor original|Os|Rotativo|Parcelamento).*$/i, '').trim()
     // Remove trailing numbers (values without R$ prefix)
     descricao = descricao.replace(/\s+[-\d.,]+\s*$/, '').trim()
 
