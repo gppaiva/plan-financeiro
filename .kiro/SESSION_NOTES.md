@@ -7,7 +7,7 @@
 - **Deploy**: Vercel (auto-deploy do branch `main`)
 - **Repo**: https://github.com/gppaiva/plan-financeiro
 - **Desenvolvedor**: Gustavo Paiva
-- **Versão atual**: 1.0.4 (auto-incrementa a cada push via `scripts/bump-version.js`)
+- **Versão atual**: 1.0.36 (auto-incrementa a cada push via `scripts/bump-version.js`)
 
 ## Arquitetura
 
@@ -204,9 +204,16 @@ Ao iniciar nova sessão, pedir para ler:
 - Suporte a PDF protegido com senha (mesmo fluxo do ZIP)
 - Parsers por banco: Bradesco, C6, e genérico (fallback)
 - Regex: `DD/MM DESCRICAO VALOR` para identificar transações
-- Filtra pagamentos/créditos (PAGAMENTO, PGTO, CRÉDITO, ESTORNO)
+- Filtra pagamentos/créditos (PAGAMENTO, PGTO, CRÉDITO, ESTORNO, SALDO ANTERIOR, DEB EM C/C)
 - Extrai parcelas da descrição (ex: "1/3")
-- Detecta ano da fatura pelo campo "Vencimento" no header
+- Detecta ano da fatura pelo campo "Vencimento" ou primeira data DD/MM/YYYY
 - Modal aceita `.csv`, `.zip` e `.pdf`
 - Campo de senha genérico "Senha do arquivo" (funciona pra ZIP e PDF)
+- OCR via Tesseract.js para PDFs baseados em imagem (como Bradesco)
+- Multi-scale OCR: tenta scale 2, 2.5, 3 e mantém o melhor resultado
+- Suporte a múltiplos blocos de cartão no mesmo PDF (Bradesco tem vários cartões)
+- Extração de texto por posição Y (reconstrução de linhas para PDFs com texto posicional)
+- Aceita variações de OCR: `º` após data, `–` antes da descrição, `RS` em vez de `R$`
 - Arquivo: `src/lib/invoice-pdf-parser.ts`
+
+### Versão Atual: 1.0.36

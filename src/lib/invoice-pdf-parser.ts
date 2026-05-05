@@ -14,8 +14,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<string> {
   const pages: string[] = []
 
-  console.log('[OCR] Total pages in PDF:', pdf.numPages)
-
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i)
 
@@ -39,9 +37,7 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
         logger: () => {}, // Suppress progress logs
       })
 
-      const lineCount = data.text.split('\n').filter((l: string) => l.trim()).length
       const dateCount = (data.text.match(/\d{2}\/\d{2}/g) || []).length
-      console.log(`[OCR] Page ${i} (scale ${scale}): ${lineCount} lines, ${data.text.length} chars, ${dateCount} dates`)
 
       // Keep the result with the most dates (most relevant for invoices)
       const bestDateCount = (bestText.match(/\d{2}\/\d{2}/g) || []).length
@@ -51,7 +47,6 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
 
       // If we got a good result, stop trying
       if (dateCount >= 8) {
-        console.log(`[OCR] Page ${i}: excellent result, stopping`)
         break
       }
     }
@@ -133,15 +128,9 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
 
     const fullText = pages.join('\n')
 
-    // Debug: log extracted text to console for troubleshooting
-    console.log('[PDF Parser] Extracted text length:', fullText.length)
-    console.log('[PDF Parser] Text content preview:', fullText.substring(0, 500))
-
     // If text is empty or very short, try OCR as fallback
     // Threshold: less than 100 chars means the PDF is likely image-based
     if (fullText.trim().length < 100) {
-      console.log('[PDF Parser] Text too short, falling back to OCR...')
-      // Use OCR to extract text from PDF pages rendered as images
       const ocrText = await extractTextWithOcr(pdf)
       if (ocrText.trim().length < 20) {
         throw new Error('Não foi possível extrair texto do PDF. O arquivo pode estar corrompido.')
@@ -382,19 +371,7 @@ function parseTransactionLines(text: string, year: number, _banco: string): C6In
  */
 function parseBradescoPdf(text: string): C6ParseOutcome {
   const year = extractYear(text)
-
-  // Debug: log lines that contain dates to help troubleshoot
-  const lines = text.split(/\n/)
-  const dateLines = lines.filter((l) => /\d{2}\/\d{2}/.test(l))
-  console.log('[Bradesco Parser] Total lines:', lines.length)
-  console.log('[Bradesco Parser] Lines with dates:', dateLines.length)
-  console.log('[Bradesco Parser] Year detected:', year)
-  dateLines.forEach((l, i) => console.log(`[Bradesco] Date line ${i}:`, l.substring(0, 120)))
-
   const items = parseTransactionLines(text, year, 'Bradesco')
-
-  console.log('[Bradesco Parser] Items found:', items.length)
-  items.forEach((item) => console.log(`[Bradesco] Item: ${item.descricao} = ${item.valorBrl}`))
 
   if (items.length === 0) {
     return { success: false, error: 'Nenhuma compra encontrada na fatura Bradesco' }
