@@ -65,13 +65,20 @@ export function parseC6ScreenshotText(text: string, year: number): C6ParseOutcom
     return { success: false, error: 'Nenhum texto extraído das imagens' }
   }
 
+  // Debug: log OCR text to help troubleshoot
+  console.log('[Image Parser] OCR text length:', text.length)
+  console.log('[Image Parser] OCR text preview:', text.substring(0, 2000))
+
   const lines = text.split(/\n/).map((l) => l.trim()).filter((l) => l.length > 0)
   const items: C6InvoiceItem[] = []
 
+  console.log('[Image Parser] Total lines:', lines.length)
+  lines.forEach((l, idx) => console.log(`[Image] Line ${idx}:`, l))
+
   let i = 0
   while (i < lines.length) {
-    // Look for a date line: DD/MM (exactly 5 chars, or with extra OCR noise)
-    const dateMatch = lines[i].match(/^(\d{2})\/(\d{2})$/)
+    // Look for a date line: DD/MM — can be alone or with extra chars from OCR
+    const dateMatch = lines[i].match(/^(\d{2})\/(\d{2})\s*$/) || lines[i].match(/^(\d{2})\/(\d{2})\b/)
     if (!dateMatch) {
       i++
       continue
