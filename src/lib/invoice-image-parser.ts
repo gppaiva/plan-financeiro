@@ -65,7 +65,12 @@ export function parseC6ScreenshotText(text: string, year: number): C6ParseOutcom
     return { success: false, error: 'Nenhum texto extraído das imagens' }
   }
 
-  const lines = text.split(/\n/).map((l) => l.trim()).filter((l) => l.length > 0)
+  // Debug logs
+  console.log('[Image Parser] Text length:', text.length)
+  const allLines = text.split(/\n/).map((l) => l.trim()).filter((l) => l.length > 0)
+  console.log('[Image Parser] Total lines:', allLines.length)
+
+  const lines = allLines
   const items: C6InvoiceItem[] = []
 
   let i = 0
@@ -193,6 +198,10 @@ export function parseC6ScreenshotText(text: string, year: number): C6ParseOutcom
   if (items.length === 0) {
     return { success: false, error: 'Nenhuma compra encontrada nas imagens. Verifique se as imagens são screenshots do app C6.' }
   }
+
+  // Debug: log found items
+  console.log('[Image Parser] Items found:', items.length)
+  items.forEach((item, idx) => console.log(`[Image] Item ${idx}: ${item.descricao} = ${item.valorBrl} (${item.dataCompra})`))
 
   const totalBrl = items.reduce((sum, item) => sum + item.valorBrl, 0)
 
