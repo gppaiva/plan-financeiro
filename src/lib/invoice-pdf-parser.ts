@@ -32,17 +32,10 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
 
       await (page.render({ canvasContext: ctx, viewport } as never).promise)
 
-      // Crop to left 78% of the page to include R$ values column but exclude right sidebar
-      // (taxes, limits, etc. are in the rightmost ~20% of the page)
-      const cropWidth = Math.round(canvas.width * 0.78)
-      const croppedCanvas = document.createElement('canvas')
-      croppedCanvas.width = cropWidth
-      croppedCanvas.height = canvas.height
-      const croppedCtx = croppedCanvas.getContext('2d')!
-      croppedCtx.drawImage(canvas, 0, 0, cropWidth, canvas.height, 0, 0, cropWidth, canvas.height)
-
-      // Run OCR on the cropped canvas (left column only)
-      const { data } = await Tesseract.recognize(croppedCanvas, 'por', {
+      // Run OCR on the full canvas
+      // Note: On mobile/Safari, OCR may pick up text from right column (taxes, limits)
+      // The parser filters will handle removing non-transaction lines
+      const { data } = await Tesseract.recognize(canvas, 'por', {
         logger: () => {}, // Suppress progress logs
       })
 
@@ -269,6 +262,27 @@ function shouldSkipDescription(descricao: string): boolean {
     upper.includes('GUSTAVO PEREIRA') ||
     upper.includes('LANCAMENTOS') ||
     upper.includes('LANÇAMENTOS') ||
+    // Right column content (taxes, limits, program info)
+    upper.includes('COMPRAS') ||
+    upper.includes('DISPONÍVEL') ||
+    upper.includes('UTILIZADO') ||
+    upper.includes('LIMITES') ||
+    upper.includes('TAXAS') ||
+    upper.includes('PARCELAMENTO') ||
+    upper.includes('ROTATIVO') ||
+    upper.includes('CREDIÁRIO') ||
+    upper.includes('CREDIARIO') ||
+    upper.includes('PRÓXIMAS FATURAS') ||
+    upper.includes('PROGRAMA DE') ||
+    upper.includes('PONTOS') ||
+    upper.includes('LIVELO') ||
+    upper.includes('FIDELIDADE') ||
+    upper.includes('TETO DE JUROS') ||
+    upper.includes('VALOR ORIGINAL') ||
+    upper.includes('DÍVIDA') ||
+    upper.includes('DIVIDA') ||
+    upper.includes('MÁXIMO DE JUROS') ||
+    upper.includes('MAXIMO DE JUROS') ||
     // Match "SALDO" only when it's a standalone word (not part of store names)
     /\bSALDO\b/.test(upper)
   )
