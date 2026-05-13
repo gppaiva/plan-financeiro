@@ -412,8 +412,18 @@ export function parseInvoiceScreenshotText(text: string): C6ParseOutcome {
     return { success: false, error: 'Nenhum texto extraído das imagens' }
   }
 
+  // Debug: log OCR text
+  console.log('[Screenshot Parser] Text length:', text.length)
+  console.log('[Screenshot Parser] First 3000 chars:', text.substring(0, 3000))
+
   const banco = detectBank(text)
+  console.log('[Screenshot Parser] Detected bank:', banco)
+
   const items = banco === 'C6' ? parseC6Text(text) : parseBradescoText(text)
+
+  console.log('[Screenshot Parser] Items found:', items.length)
+  items.forEach((item, idx) => console.log(`[Screenshot] Item ${idx}: ${item.descricao} = ${item.valorBrl} (${item.dataCompra})`))
+
 
   if (items.length === 0) {
     const bancoMsg = banco === 'C6'
