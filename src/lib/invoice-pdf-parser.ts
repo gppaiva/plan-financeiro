@@ -100,8 +100,8 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
           continue
         }
 
-        // For multi-column PDFs (like Bradesco full invoice), only use left ~78% of page
-        const maxX = pageWidth * 0.78
+        // For multi-column PDFs (like Bradesco full invoice), only use left ~62% of page
+        const maxX = pageWidth * 0.62
 
         // Group by Y coordinate (transform[5] is the Y position)
         const lineMap = new Map<number, { x: number; text: string }[]>()
