@@ -30,7 +30,7 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
       canvas.height = viewport.height
       const ctx = canvas.getContext('2d')!
 
-      await page.render({ canvasContext: ctx, viewport, canvas }).promise
+      await page.render({ canvasContext: ctx, viewport }).promise
 
       // Run OCR on the canvas
       const { data } = await Tesseract.recognize(canvas, 'por', {
@@ -80,12 +80,11 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
 
       // Group text items by their Y position to reconstruct lines properly
       // This is critical for PDFs where text is positioned absolutely (like Bradesco)
-      const items = textContent.items.filter(
-        (item): item is typeof item & { str: string; transform: number[] } =>
-          'str' in item && 'transform' in item && item.str.trim().length > 0,
-      )
+      const rawItems = textContent.items.filter(
+        (item) => 'str' in item && 'transform' in item && (item as { str: string }).str.trim().length > 0,
+      ) as Array<{ str: string; transform: number[] }>
 
-      if (items.length === 0) {
+      if (rawItems.length === 0) {
         pages.push('')
         continue
       }
@@ -98,7 +97,7 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
       // Items on the same line have similar Y values (within 2px tolerance)
       const lineMap = new Map<number, { x: number; text: string }[]>()
 
-      for (const item of items) {
+      for (const item of rawItems) {
         const y = Math.round(item.transform[5]) // Round Y to group nearby items
         const x = item.transform[4] // X position for ordering
 
