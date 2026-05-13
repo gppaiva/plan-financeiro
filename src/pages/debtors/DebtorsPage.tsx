@@ -9,7 +9,8 @@ import { formatCurrency, formatDate } from '../../lib/format'
 import type { Debtor } from '../../types'
 
 export function DebtorsPage() {
-  const { profileId } = useProfile()
+  const { user } = useProfile()
+  const userId = user?.id ?? null
   const { debtors, payments, loading, fetchDebtors, addDebtor, updateDebtor, deleteDebtor, fetchPayments, addPayment, deletePayment } = useDebtorsStore()
   const { showToast } = useToast()
 
@@ -34,8 +35,8 @@ export function DebtorsPage() {
   const [paymentData, setPaymentData] = useState(new Date().toISOString().split('T')[0])
 
   useEffect(() => {
-    if (profileId) fetchDebtors(profileId)
-  }, [profileId, fetchDebtors])
+    if (userId) fetchDebtors(userId)
+  }, [userId, fetchDebtors])
 
   const totalOwed = useMemo(() => {
     return debtors
@@ -62,14 +63,14 @@ export function DebtorsPage() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!profileId) return
+    if (!userId) return
     if (!nome.trim()) { showToast('Nome é obrigatório', 'error'); return }
     if (!descricao.trim()) { showToast('Descrição é obrigatória', 'error'); return }
     const val = parseFloat(valorTotal) || 0
     if (val <= 0) { showToast('Valor deve ser positivo', 'error'); return }
     setSubmitting(true)
     try {
-      await addDebtor(profileId, { nome, descricao, valor_total: val })
+      await addDebtor(userId, { nome, descricao, valor_total: val })
       showToast('Devedor adicionado!', 'success')
       setShowAddModal(false)
       setNome(''); setDescricao(''); setValorTotal('')
