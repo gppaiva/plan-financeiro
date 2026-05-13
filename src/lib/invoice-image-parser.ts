@@ -181,11 +181,11 @@ function parseC6Text(text: string): C6InvoiceItem[] {
       continue
     }
 
-    // Check for date line: DD/MM alone
-    const dateOnlyMatch = line.match(/^(\d{2})\/(\d{2})\s*$/)
+    // Check for date line: DD/MM alone (OCR may read 0 as O)
+    const dateOnlyMatch = line.match(/^([O0]?\d{1,2})\/([O0]?\d{1,2})\s*$/)
     if (dateOnlyMatch) {
-      currentDay = dateOnlyMatch[1]
-      currentMonth = dateOnlyMatch[2]
+      currentDay = dateOnlyMatch[1].replace(/O/g, '0').padStart(2, '0')
+      currentMonth = dateOnlyMatch[2].replace(/O/g, '0').padStart(2, '0')
       i++
 
       // Next line should be: "DESCRIPTION R$ VALUE"
@@ -193,7 +193,7 @@ function parseC6Text(text: string): C6InvoiceItem[] {
       const descLine = lines[i]
 
       // Skip if next line is a skip pattern or another date
-      if (skipPatterns.some((p) => p.test(descLine)) || /^\d{2}\/\d{2}\s*$/.test(descLine)) continue
+      if (skipPatterns.some((p) => p.test(descLine)) || /^[O0]?\d{1,2}\/[O0]?\d{1,2}\s*$/.test(descLine)) continue
 
       const valorMatch = descLine.match(/R\$\s*([-]?[\d.,]+)/)
       if (!valorMatch) {
@@ -258,11 +258,11 @@ function parseC6Text(text: string): C6InvoiceItem[] {
       continue
     }
 
-    // Check for inline: "DD/MM DESCRIPTION R$ VALUE"
-    const inlineMatch = line.match(/^(\d{2})\/(\d{2})\s+(.+?)\s+R\$\s*([-]?[\d.,]+)/)
+    // Check for inline: "DD/MM DESCRIPTION R$ VALUE" (OCR may read 0 as O)
+    const inlineMatch = line.match(/^([O0]?\d{1,2})\/([O0]?\d{1,2})\s+(.+?)\s+R\$\s*([-]?[\d.,]+)/)
     if (inlineMatch) {
-      currentDay = inlineMatch[1]
-      currentMonth = inlineMatch[2]
+      currentDay = inlineMatch[1].replace(/O/g, '0').padStart(2, '0')
+      currentMonth = inlineMatch[2].replace(/O/g, '0').padStart(2, '0')
       const rawValue = inlineMatch[4]
       let descricao = inlineMatch[3].trim()
       i++
@@ -297,7 +297,7 @@ function parseC6Text(text: string): C6InvoiceItem[] {
     }
 
     // Fallback: line has "DESCRIPTION R$ VALUE" without date prefix
-    // Accept if it looks like a real transaction (not a summary/total line)
+    // Only accept if next line confirms it's a transaction (contains "Cartão final")
     const fallbackMatch = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,]+)/)
     if (fallbackMatch) {
       const rawValue = fallbackMatch[2]
@@ -309,42 +309,38 @@ function parseC6Text(text: string): C6InvoiceItem[] {
         continue
       }
 
-      // Skip if description looks like a non-transaction line
       if (!descricao || descricao.length < 2) continue
       if (skipPatterns.some((p) => p.test(descricao))) continue
-      // Skip known summary/header patterns
-      if (/^R\$/.test(line)) continue
-      if (/^Valor/i.test(descricao)) continue
-      if (/^Cart[aã]o/i.test(descricao)) continue
-      if (/^Subtotal/i.test(descricao)) continue
 
-      const valorBrl = parseBrDecimal(rawValue)
-      let finalCartao = ''
-      let parcela = 'Única'
+      // Only accept if next line is "Cartão final XXXX"
+      if (i < lines.length && /[Cc]art[aã]o\s+final\s+\d{4}/.test(lines[i])) {
+        const valorBrl = parseBrDecimal(rawValue)
+        let finalCartao = ''
+        let parcela = 'Única'
 
-      // Check for parcela in the same line (after the value)
-      const afterValue = line.substring(line.indexOf(rawValue) + rawValue.length)
-      const inlineParcela = afterValue.match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/)
-      if (inlineParcela) {
-        parcela = `${inlineParcela[1]}/${inlineParcela[2]}`
-      }
+        // Check for parcela in the same line as the value
+        const afterValue = line.substring(line.indexOf(rawValue) + rawValue.length)
+        const inlineParcela = afterValue.match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/)
+        if (inlineParcela) {
+          parcela = `${inlineParcela[1]}/${inlineParcela[2]}`
+        }
 
-      if (i < lines.length) {
         const cm = lines[i].match(/[Cc]art[aã]o\s+final\s+(\d{4})/)
         if (cm) { finalCartao = cm[1]; const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/); if (pm) parcela = `${pm[1]}/${pm[2]}`; i++ }
-      }
-      if (i < lines.length && /^[Pp]arcela/.test(lines[i])) {
-        const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/); if (pm) parcela = `${pm[1]}/${pm[2]}`; i++
-      }
 
-      if (valorBrl > 0 && !isNaN(valorBrl)) {
-        const monthNum = parseInt(currentMonth, 10)
-        const year = inferYear(monthNum)
-        items.push({
-          dataCompra: `${year}-${currentMonth}-${currentDay}`,
-          nomeCartao: '', finalCartao, categoriaC6: '', descricao, parcela,
-          valorUsd: 0, cotacao: 0, valorBrl: Math.round(valorBrl * 100) / 100,
-        })
+        if (i < lines.length && /^[Pp]arcela/.test(lines[i])) {
+          const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/); if (pm) parcela = `${pm[1]}/${pm[2]}`; i++
+        }
+
+        if (valorBrl > 0 && !isNaN(valorBrl)) {
+          const monthNum = parseInt(currentMonth, 10)
+          const year = inferYear(monthNum)
+          items.push({
+            dataCompra: `${year}-${currentMonth}-${currentDay}`,
+            nomeCartao: '', finalCartao, categoriaC6: '', descricao, parcela,
+            valorUsd: 0, cotacao: 0, valorBrl: Math.round(valorBrl * 100) / 100,
+          })
+        }
       }
       continue
     }
