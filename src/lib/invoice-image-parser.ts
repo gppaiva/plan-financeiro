@@ -2,11 +2,56 @@ import Tesseract from 'tesseract.js'
 import type { C6InvoiceItem, C6ParseOutcome } from './invoice-csv-parser'
 
 /**
+ * Pre-processes an image to improve OCR accuracy:
+ * - Increases contrast
+ * - Converts to grayscale
+ * - Sharpens text
+ */
+async function preprocessImage(file: File): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')!
+
+      // Draw original
+      ctx.drawImage(img, 0, 0)
+
+      // Get image data and increase contrast
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const data = imageData.data
+      const contrast = 50 // Increase contrast by 50%
+      const factor = (259 * (contrast + 255)) / (255 * (259 - contrast))
+
+      for (let i = 0; i < data.length; i += 4) {
+        // Convert to grayscale first
+        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+        // Apply contrast
+        const newVal = Math.min(255, Math.max(0, factor * (gray - 128) + 128))
+        data[i] = newVal     // R
+        data[i + 1] = newVal // G
+        data[i + 2] = newVal // B
+      }
+
+      ctx.putImageData(imageData, 0, 0)
+
+      canvas.toBlob((blob) => {
+        resolve(blob || new Blob())
+      }, 'image/png')
+    }
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+/**
  * Runs OCR on a single image file and returns the extracted text.
- * Uses Tesseract.js with Portuguese language.
+ * Pre-processes the image for better accuracy, uses English+Portuguese languages.
  */
 export async function extractTextFromImage(file: File): Promise<string> {
-  const { data } = await Tesseract.recognize(file, 'por', {
+  const processedBlob = await preprocessImage(file)
+  const { data } = await Tesseract.recognize(processedBlob, 'eng+por', {
     logger: () => {},
   })
   return data.text
