@@ -486,12 +486,20 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
       // Check if this is similar to any already-kept item
       const isDuplicate = kept.some((k) => {
         const kNorm = k.descricao.toLowerCase().replace(/[^a-z0-9]/g, '')
-        // Same first 6 chars = duplicate (handles OCR variations)
-        if (norm.substring(0, 6) === kNorm.substring(0, 6)) return true
+        // Same first 8 chars = duplicate (handles OCR variations)
+        if (norm.substring(0, 8) === kNorm.substring(0, 8) && norm.substring(0, 8).length >= 6) return true
         // One contains the other
-        if (norm.includes(kNorm) || kNorm.includes(norm)) return true
-        // Both are very short and garbled — same value means duplicate
-        if (norm.length < 6 && kNorm.length < 6) return true
+        if (norm.length >= 4 && kNorm.length >= 4) {
+          if (norm.includes(kNorm.substring(0, 6)) || kNorm.includes(norm.substring(0, 6))) return true
+        }
+        // If one description looks like OCR garbage (lots of repeated chars or very short),
+        // treat as duplicate since same value+parcela is strong signal
+        const isGarbled = (s: string) => {
+          if (s.length < 6) return true
+          const unique = new Set(s).size
+          return unique < s.length * 0.4 // Less than 40% unique chars = garbled
+        }
+        if (isGarbled(norm) || isGarbled(kNorm)) return true
         return false
       })
 
