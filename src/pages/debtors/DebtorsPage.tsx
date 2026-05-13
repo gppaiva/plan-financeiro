@@ -6,7 +6,7 @@ import { useToast } from '../../components/ui/Toast'
 import { useDebtorsStore } from '../../stores/debtors.store'
 import { useProfile } from '../../hooks/useProfile'
 import { formatCurrency, formatDate } from '../../lib/format'
-import type { Debtor, DebtorPayment } from '../../types'
+import type { Debtor } from '../../types'
 
 export function DebtorsPage() {
   const { profileId } = useProfile()
