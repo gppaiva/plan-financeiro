@@ -346,7 +346,8 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     // Detect transaction line: contains R$ with a value
     // Format: "● DESCRIPTION R$ VALUE >" or "DESCRIPTION R$ VALUE >"
     // Also handles OCR variants: "e DESCRIPTION R$ VALUE", "o DESCRIPTION R$ VALUE"
-    const txMatch = line.match(/^[●•·eo°.,-]*\s*(.+?)\s+R\$\s*([-]?[\d.,]+)\s*>?\s*$/i)
+    // "é DESCRIPTION", "S o DESCRIPTION", "I o DESCRIPTION", "l o DESCRIPTION"
+    const txMatch = line.match(/^(?:[●•·°.,-]*|[éèSIl]?\s*[eo]{1,2})\s+(.+?)\s+R\$\s*([-]?[\d.,]+)\s*>?\s*$/i)
     if (!txMatch) {
       // Also try: line has R$ somewhere with description before it
       const txMatch2 = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,]+)\s*>?\s*$/i)
@@ -365,7 +366,10 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
       if (isNaN(valorBrl) || valorBrl <= 0) continue
 
       // Clean description - remove leading bullets and OCR artifacts
-      descricao = descricao.replace(/^[●•·eo°.,-]+\s*/i, '').trim()
+      // OCR often prepends: "é", "e", "o", "eo", "S o", "I o", "l o", etc.
+      descricao = descricao.replace(/^[●•·°.,-]+\s*/i, '').trim()
+      descricao = descricao.replace(/^[SIl]?\s*[eo]{1,2}\s+/i, '').trim()
+      descricao = descricao.replace(/^[éè]\s*/i, '').trim()
       // Remove leading day+month that leaked into description line
       descricao = descricao.replace(/^\d{1,2}\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s+/i, '').trim()
       descricao = descricao.replace(/^\d{1,2}\s+/, '').trim()
@@ -415,7 +419,10 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     if (isNaN(valorBrl) || valorBrl <= 0) continue
 
     // Clean description - remove leading bullets and OCR artifacts
-    descricao = descricao.replace(/^[●•·eo°.,-]+\s*/i, '').trim()
+    // OCR often prepends: "é", "e", "o", "eo", "S o", "I o", "l o", etc.
+    descricao = descricao.replace(/^[●•·°.,-]+\s*/i, '').trim()
+    descricao = descricao.replace(/^[SIl]?\s*[eo]{1,2}\s+/i, '').trim()
+    descricao = descricao.replace(/^[éè]\s*/i, '').trim()
     // Remove leading day+month that leaked into description
     descricao = descricao.replace(/^\d{1,2}\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s+/i, '').trim()
     descricao = descricao.replace(/^\d{1,2}\s+/, '').trim()
@@ -451,24 +458,48 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     })
   }
 
-  // Deduplicate: remove items with same value + similar description
-  // (screenshots may overlap and show the same transactions twice)
-  // Uses fuzzy matching: normalize description by removing spaces/special chars
-  // and compare first 10 chars + value
+  // Deduplicate: remove items that are the same transaction seen across overlapping screenshots.
+  // Strategy: group by valor + parcela. Within each group, use fuzzy description matching.
+  // Two items with the same value are duplicates UNLESS their descriptions are clearly different
+  // (e.g., "Wellhub Gustavo" vs "Wellhub bruno" are different people, keep both).
   const uniqueItems: C6InvoiceItem[] = []
-  const seen = new Set<string>()
+  const valueGroups = new Map<string, C6InvoiceItem[]>()
 
   for (const item of items) {
-    // Normalize: lowercase, remove non-alphanumeric, take first 12 chars
-    const normalizedDesc = item.descricao
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '')
-      .substring(0, 12)
-    const key = `${normalizedDesc}|${item.valorBrl}`
+    const key = `${item.valorBrl}|${item.parcela}`
+    if (!valueGroups.has(key)) valueGroups.set(key, [])
+    valueGroups.get(key)!.push(item)
+  }
 
-    if (seen.has(key)) continue
-    seen.add(key)
-    uniqueItems.push(item)
+  for (const group of valueGroups.values()) {
+    if (group.length === 1) {
+      uniqueItems.push(group[0])
+      continue
+    }
+
+    // Multiple items with same value+parcela — deduplicate by description similarity
+    const kept: C6InvoiceItem[] = []
+    for (const item of group) {
+      // Normalize: lowercase, keep only alphanumeric
+      const norm = item.descricao.toLowerCase().replace(/[^a-z0-9]/g, '')
+
+      // Check if this is similar to any already-kept item
+      const isDuplicate = kept.some((k) => {
+        const kNorm = k.descricao.toLowerCase().replace(/[^a-z0-9]/g, '')
+        // Same first 6 chars = duplicate (handles OCR variations)
+        if (norm.substring(0, 6) === kNorm.substring(0, 6)) return true
+        // One contains the other
+        if (norm.includes(kNorm) || kNorm.includes(norm)) return true
+        // Both are very short and garbled — same value means duplicate
+        if (norm.length < 6 && kNorm.length < 6) return true
+        return false
+      })
+
+      if (!isDuplicate) {
+        kept.push(item)
+      }
+    }
+    uniqueItems.push(...kept)
   }
 
   return uniqueItems
