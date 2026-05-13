@@ -222,6 +222,13 @@ function parseC6Text(text: string): C6InvoiceItem[] {
       let finalCartao = ''
       let parcela = 'Única'
 
+      // Check for parcela in the same line as the value
+      const afterValue = descLine.substring(descLine.indexOf(rawValue) + rawValue.length)
+      const inlineParcela = afterValue.match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/)
+      if (inlineParcela) {
+        parcela = `${inlineParcela[1]}/${inlineParcela[2]}`
+      }
+
       // Check next line for "Cartão final XXXX"
       if (i < lines.length) {
         const cartaoMatch = lines[i].match(/[Cc]art[aã]o\s+final\s+(\d{4})/)
@@ -290,50 +297,55 @@ function parseC6Text(text: string): C6InvoiceItem[] {
     }
 
     // Fallback: line has "DESCRIPTION R$ VALUE" without date prefix
-    // Only accept if next line confirms it's a transaction (contains "Cartão final")
-    const fallbackMatch = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,]+)\s*$/)
+    // Accept if it looks like a real transaction (not a summary/total line)
+    const fallbackMatch = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,]+)/)
     if (fallbackMatch) {
       const rawValue = fallbackMatch[2]
       let descricao = fallbackMatch[1].trim()
+      i++
 
       if (rawValue.startsWith('-') || skipDescriptions.some((p) => p.test(descricao))) {
-        i++
         if (i < lines.length && /[Cc]art[aã]o/i.test(lines[i])) i++
         continue
       }
 
       // Skip if description looks like a non-transaction line
-      if (!descricao || descricao.length < 2) { i++; continue }
-      if (skipPatterns.some((p) => p.test(descricao))) { i++; continue }
+      if (!descricao || descricao.length < 2) continue
+      if (skipPatterns.some((p) => p.test(descricao))) continue
+      // Skip known summary/header patterns
+      if (/^R\$/.test(line)) continue
+      if (/^Valor/i.test(descricao)) continue
+      if (/^Cart[aã]o/i.test(descricao)) continue
+      if (/^Subtotal/i.test(descricao)) continue
 
-      // Only accept as transaction if next line is "Cartão final XXXX"
-      // This prevents capturing subtotals, totals, and other summary lines
-      if (i + 1 < lines.length && /[Cc]art[aã]o\s+final\s+\d{4}/.test(lines[i + 1])) {
-        i++ // advance past description line
-        const valorBrl = parseBrDecimal(rawValue)
-        let finalCartao = ''
-        let parcela = 'Única'
+      const valorBrl = parseBrDecimal(rawValue)
+      let finalCartao = ''
+      let parcela = 'Única'
 
-        const cm = lines[i].match(/[Cc]art[aã]o\s+final\s+(\d{4})/)
-        if (cm) { finalCartao = cm[1]; const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/); if (pm) parcela = `${pm[1]}/${pm[2]}`; i++ }
-
-        if (i < lines.length && /^[Pp]arcela/.test(lines[i])) {
-          const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/); if (pm) parcela = `${pm[1]}/${pm[2]}`; i++
-        }
-
-        if (valorBrl > 0 && !isNaN(valorBrl)) {
-          const monthNum = parseInt(currentMonth, 10)
-          const year = inferYear(monthNum)
-          items.push({
-            dataCompra: `${year}-${currentMonth}-${currentDay}`,
-            nomeCartao: '', finalCartao, categoriaC6: '', descricao, parcela,
-            valorUsd: 0, cotacao: 0, valorBrl: Math.round(valorBrl * 100) / 100,
-          })
-        }
-        continue
+      // Check for parcela in the same line (after the value)
+      const afterValue = line.substring(line.indexOf(rawValue) + rawValue.length)
+      const inlineParcela = afterValue.match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/)
+      if (inlineParcela) {
+        parcela = `${inlineParcela[1]}/${inlineParcela[2]}`
       }
 
-      i++
+      if (i < lines.length) {
+        const cm = lines[i].match(/[Cc]art[aã]o\s+final\s+(\d{4})/)
+        if (cm) { finalCartao = cm[1]; const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/); if (pm) parcela = `${pm[1]}/${pm[2]}`; i++ }
+      }
+      if (i < lines.length && /^[Pp]arcela/.test(lines[i])) {
+        const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/); if (pm) parcela = `${pm[1]}/${pm[2]}`; i++
+      }
+
+      if (valorBrl > 0 && !isNaN(valorBrl)) {
+        const monthNum = parseInt(currentMonth, 10)
+        const year = inferYear(monthNum)
+        items.push({
+          dataCompra: `${year}-${currentMonth}-${currentDay}`,
+          nomeCartao: '', finalCartao, categoriaC6: '', descricao, parcela,
+          valorUsd: 0, cotacao: 0, valorBrl: Math.round(valorBrl * 100) / 100,
+        })
+      }
       continue
     }
 
