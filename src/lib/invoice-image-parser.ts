@@ -256,48 +256,43 @@ function parseC6Text(text: string): C6InvoiceItem[] {
 /**
  * Parses OCR text from Bradesco app screenshots.
  *
- * Real format from Bradesco app:
- *   DD                            ← day number (bold, on its own or with month)
- *   Mês                           ← month abbreviation (Abr, Mai, Jun, etc.)
- *     ● DESCRIPTION         R$ VALUE  >
- *     Parcela X de Y (optional, on next line)
+ * OCR produces lines like:
+ *   "O9 eo RIACHUELO 331 R$ 69,99 >"
+ *   "O1 e sHOPPINGCNA R$ 66,55 >"
+ *   "O9l e Wellhub Gustavo Pereira d R$ 99,99 >"
+ *   "O8 o EBN*SPOTIFY R$ 40,90 >"
+ *   "25 o JIMCOMXDCOSMETICOS R$ 260,10 >"
+ *   "11 e ATACADAO 938 AS R$ 427,98 >"
  *
- * Multiple transactions on same day share the date header.
- * The parser works line-by-line tracking the current day/month context.
+ * Pattern: [optional day][bullet chars] DESCRIPTION R$ VALUE [>] [month]
+ *
+ * Also standalone day/month lines that set context for subsequent transactions.
  */
 function parseBradescoText(text: string): C6InvoiceItem[] {
   const items: C6InvoiceItem[] = []
   const lines = text.split(/\n/).map((l) => l.trim()).filter((l) => l.length > 0)
 
-  const skipPatterns = [
+  const skipDescriptions = [
     /SALDO ANTERIOR/i,
-    /Total de lan/i,
-    /Resumo da fatura/i,
-    /Total da fatura/i,
+    /Total/i,
+    /Resumo/i,
     /Gustavo P Paiva/i,
-    /Data\s+Descri/i,
     /Lan[cç]amentos/i,
     /Busque por nome/i,
     /Cart[oõ]es da fatura/i,
     /Voltar ao topo/i,
-    /Consulte o hist/i,
-    /Conhe[cç]a as taxas/i,
+    /Consulte/i,
+    /Conhe[cç]a/i,
     /Valor pago/i,
-    /Fatura do cart/i,
+    /Fatura/i,
     /Final\s+\d{4}/i,
     /PAGTO/i,
     /POR DEB/i,
-    /Fatura fechada/i,
-    /Fatura em d[eé]bito/i,
     /Vencimento/i,
-    /Ver em PDF/i,
     /Parcelar/i,
-    /Total da fatura anterior/i,
-    /Lan[cç]amentos nacionais/i,
-    /Lan[cç]amentos internacionais/i,
-    /Valor pago.*cr[eé]ditos/i,
-    /Cart[oõ]es da fatura/i,
-    /R\$\s*0,00\s*$/,
+    /^Data\b/i,
+    /^Descri/i,
+    /^Valor$/i,
   ]
 
   let currentDay = '01'
@@ -306,129 +301,79 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
 
-    // Skip known non-transaction lines
-    if (skipPatterns.some((p) => p.test(line))) continue
+    // Try to match a transaction line: anything with R$ and a positive value
+    // Main regex: captures everything before R$ as raw description, and the value after
+    const valueMatch = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?\s*$/i)
 
-    // Detect day + month on same line: "07 Mai" or "25 Abr"
-    const dayMonthMatch = line.match(/^[O0]?(\d{1,2})\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s*$/i)
-    if (dayMonthMatch) {
-      const dayNum = parseInt(dayMonthMatch[1], 10)
-      if (dayNum >= 1 && dayNum <= 31) {
-        currentDay = dayNum.toString().padStart(2, '0')
-      }
-      const monthKey = Object.keys(MONTH_MAP).find(
-        (m) => m.toLowerCase() === dayMonthMatch[2].toLowerCase(),
-      )
-      if (monthKey) currentMonth = MONTH_MAP[monthKey]
-      continue
-    }
-
-    // Detect standalone day number: "07", "25", "11" (OCR may read as "O7", "O1")
-    const dayOnlyMatch = line.match(/^[O0]?(\d{1,2})\s*$/)
-    if (dayOnlyMatch) {
-      const dayNum = parseInt(dayOnlyMatch[1], 10)
-      if (dayNum >= 1 && dayNum <= 31) {
-        currentDay = dayNum.toString().padStart(2, '0')
-      }
-      continue
-    }
-
-    // Detect standalone month abbreviation: "Mai", "Abr", "Set"
-    const monthOnlyMatch = line.match(/^(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s*$/i)
-    if (monthOnlyMatch) {
-      const monthKey = Object.keys(MONTH_MAP).find(
-        (m) => m.toLowerCase() === monthOnlyMatch[1].toLowerCase(),
-      )
-      if (monthKey) currentMonth = MONTH_MAP[monthKey]
-      continue
-    }
-
-    // Detect transaction line: contains R$ with a value
-    // Format: "● DESCRIPTION R$ VALUE >" or "DESCRIPTION R$ VALUE >"
-    // Also handles OCR variants: "e DESCRIPTION R$ VALUE", "o DESCRIPTION R$ VALUE"
-    // "é DESCRIPTION", "S o DESCRIPTION", "I o DESCRIPTION", "l o DESCRIPTION"
-    const txMatch = line.match(/^(?:[●•·°.,-]*|[éèSIl]?\s*[eo]{1,2})\s+(.+?)\s+R\$\s*([-]?[\d.,]+)\s*>?\s*$/i)
-    if (!txMatch) {
-      // Also try: line has R$ somewhere with description before it
-      const txMatch2 = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,]+)\s*>?\s*$/i)
-      if (!txMatch2) continue
-
-      let descricao = txMatch2[1].trim()
-      const rawValue = txMatch2[2]
-
-      // Skip negative values (payments/credits)
-      if (rawValue.startsWith('-')) continue
-
-      // Skip lines that are totals or summaries
-      if (/total/i.test(descricao)) continue
-
-      const valorBrl = parseBrDecimal(rawValue)
-      if (isNaN(valorBrl) || valorBrl <= 0) continue
-
-      // Clean description - remove leading bullets and OCR artifacts
-      // OCR often prepends: "é", "e", "o", "eo", "S o", "I o", "l o", etc.
-      descricao = descricao.replace(/^[●•·°.,-]+\s*/i, '').trim()
-      descricao = descricao.replace(/^[SIl]?\s*[eo]{1,2}\s+/i, '').trim()
-      descricao = descricao.replace(/^[éè]\s*/i, '').trim()
-      // Remove leading day+month that leaked into description line
-      descricao = descricao.replace(/^\d{1,2}\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s+/i, '').trim()
-      descricao = descricao.replace(/^\d{1,2}\s+/, '').trim()
-
-      if (!descricao || descricao.length < 3) continue
-      if (skipPatterns.some((p) => p.test(descricao))) continue
-
-      // Check next line for parcela
-      let parcela = 'Única'
-      if (i + 1 < lines.length) {
-        const nextLine = lines[i + 1]
-        const parcelaMatch = nextLine.match(/[Pp]arcela\s+(\d+)\s+de\s+(\d+)/)
-        if (parcelaMatch) {
-          parcela = `${parcelaMatch[1]}/${parcelaMatch[2]}`
-          i++ // Skip parcela line
-        }
+    if (!valueMatch) {
+      // Not a transaction line — check if it's a day or month marker
+      const dayMonthMatch = line.match(/^[O0]?(\d{1,2})\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s*$/i)
+      if (dayMonthMatch) {
+        const dayNum = parseInt(dayMonthMatch[1], 10)
+        if (dayNum >= 1 && dayNum <= 31) currentDay = dayNum.toString().padStart(2, '0')
+        const monthKey = Object.keys(MONTH_MAP).find((m) => m.toLowerCase() === dayMonthMatch[2].toLowerCase())
+        if (monthKey) currentMonth = MONTH_MAP[monthKey]
+        continue
       }
 
-      const monthNum = parseInt(currentMonth, 10)
-      const year = inferYear(monthNum)
-      const dataCompra = `${year}-${currentMonth}-${currentDay}`
+      const dayOnlyMatch = line.match(/^[O0]?(\d{1,2})\s*$/)
+      if (dayOnlyMatch) {
+        const dayNum = parseInt(dayOnlyMatch[1], 10)
+        if (dayNum >= 1 && dayNum <= 31) currentDay = dayNum.toString().padStart(2, '0')
+        continue
+      }
 
-      items.push({
-        dataCompra,
-        nomeCartao: '',
-        finalCartao: '',
-        categoriaC6: '',
-        descricao,
-        parcela,
-        valorUsd: 0,
-        cotacao: 0,
-        valorBrl: Math.round(valorBrl * 100) / 100,
-      })
+      const monthOnlyMatch = line.match(/^(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s*$/i)
+      if (monthOnlyMatch) {
+        const monthKey = Object.keys(MONTH_MAP).find((m) => m.toLowerCase() === monthOnlyMatch[1].toLowerCase())
+        if (monthKey) currentMonth = MONTH_MAP[monthKey]
+        continue
+      }
+
       continue
     }
 
-    let descricao = txMatch[1].trim()
-    const rawValue = txMatch[2]
+    let rawDesc = valueMatch[1].trim()
+    const rawValue = valueMatch[2]
+    const trailingMonth = valueMatch[3]
 
-    // Skip negative values (payments/credits)
+    // Skip negative values
     if (rawValue.startsWith('-')) continue
-
-    // Skip lines that are totals or summaries
-    if (/total/i.test(descricao)) continue
 
     const valorBrl = parseBrDecimal(rawValue)
     if (isNaN(valorBrl) || valorBrl <= 0) continue
 
-    // Clean description - remove leading bullets and OCR artifacts
-    // OCR often prepends: "é", "e", "o", "eo", "S o", "I o", "l o", etc.
-    descricao = descricao.replace(/^[●•·°.,-]+\s*/i, '').trim()
-    descricao = descricao.replace(/^[SIl]?\s*[eo]{1,2}\s+/i, '').trim()
-    descricao = descricao.replace(/^[éè]\s*/i, '').trim()
-    // Remove leading day+month that leaked into description
-    descricao = descricao.replace(/^\d{1,2}\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s+/i, '').trim()
-    descricao = descricao.replace(/^\d{1,2}\s+/, '').trim()
+    // Extract day from the beginning of the description if present
+    // Patterns: "O9 eo", "11 e", "O8 o", "25 o", "O7 e", "O9l e"
+    const dayPrefixMatch = rawDesc.match(/^[O0]?(\d{1,2})[)l\]]*\s*(?:[eo]{1,2}|[●•·é])\s+(.+)$/i)
+    if (dayPrefixMatch) {
+      const dayNum = parseInt(dayPrefixMatch[1], 10)
+      if (dayNum >= 1 && dayNum <= 31) {
+        currentDay = dayNum.toString().padStart(2, '0')
+      }
+      rawDesc = dayPrefixMatch[2].trim()
+    } else {
+      // Try simpler prefix: just bullet without day number
+      // "e DESCRIPTION", "o DESCRIPTION", "eo DESCRIPTION", "● DESCRIPTION"
+      rawDesc = rawDesc.replace(/^[●•·°.,-]+\s*/, '').trim()
+      rawDesc = rawDesc.replace(/^[SIl]?\s*[eo]{1,2}\s+/i, '').trim()
+      rawDesc = rawDesc.replace(/^[éè]\s+/i, '').trim()
+      // Remove standalone day number prefix without bullet
+      rawDesc = rawDesc.replace(/^[O0]?\d{1,2}\s+/, '').trim()
+    }
 
+    // Update month from trailing month abbreviation if present
+    if (trailingMonth) {
+      const monthKey = Object.keys(MONTH_MAP).find((m) => m.toLowerCase() === trailingMonth.toLowerCase())
+      if (monthKey) currentMonth = MONTH_MAP[monthKey]
+    }
+
+    // Final description cleanup
+    let descricao = rawDesc
     if (!descricao || descricao.length < 3) continue
-    if (skipPatterns.some((p) => p.test(descricao))) continue
+
+    // Skip known non-transaction descriptions
+    if (skipDescriptions.some((p) => p.test(descricao))) continue
 
     // Check next line for parcela
     let parcela = 'Única'
@@ -458,56 +403,18 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     })
   }
 
-  // Deduplicate: remove items that are the same transaction seen across overlapping screenshots.
-  // Strategy: group by valor + parcela. Within each group, use fuzzy description matching.
-  // Two items with the same value are duplicates UNLESS their descriptions are clearly different
-  // (e.g., "Wellhub Gustavo" vs "Wellhub bruno" are different people, keep both).
+  // Deduplicate: screenshots overlap, so the same transaction appears multiple times.
+  // Use exact match on normalized description + value.
+  // Normalize: lowercase, remove all non-alphanumeric chars.
   const uniqueItems: C6InvoiceItem[] = []
-  const valueGroups = new Map<string, C6InvoiceItem[]>()
+  const seen = new Set<string>()
 
   for (const item of items) {
-    const key = `${item.valorBrl}|${item.parcela}`
-    if (!valueGroups.has(key)) valueGroups.set(key, [])
-    valueGroups.get(key)!.push(item)
-  }
-
-  for (const group of valueGroups.values()) {
-    if (group.length === 1) {
-      uniqueItems.push(group[0])
-      continue
-    }
-
-    // Multiple items with same value+parcela — deduplicate by description similarity
-    const kept: C6InvoiceItem[] = []
-    for (const item of group) {
-      // Normalize: lowercase, keep only alphanumeric
-      const norm = item.descricao.toLowerCase().replace(/[^a-z0-9]/g, '')
-
-      // Check if this is similar to any already-kept item
-      const isDuplicate = kept.some((k) => {
-        const kNorm = k.descricao.toLowerCase().replace(/[^a-z0-9]/g, '')
-        // Same first 8 chars = duplicate (handles OCR variations)
-        if (norm.substring(0, 8) === kNorm.substring(0, 8) && norm.substring(0, 8).length >= 6) return true
-        // One contains the other
-        if (norm.length >= 4 && kNorm.length >= 4) {
-          if (norm.includes(kNorm.substring(0, 6)) || kNorm.includes(norm.substring(0, 6))) return true
-        }
-        // If one description looks like OCR garbage (lots of repeated chars or very short),
-        // treat as duplicate since same value+parcela is strong signal
-        const isGarbled = (s: string) => {
-          if (s.length < 6) return true
-          const unique = new Set(s).size
-          return unique < s.length * 0.4 // Less than 40% unique chars = garbled
-        }
-        if (isGarbled(norm) || isGarbled(kNorm)) return true
-        return false
-      })
-
-      if (!isDuplicate) {
-        kept.push(item)
-      }
-    }
-    uniqueItems.push(...kept)
+    const norm = item.descricao.toLowerCase().replace(/[^a-z0-9]/g, '')
+    const key = `${norm}|${item.valorBrl}|${item.parcela}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    uniqueItems.push(item)
   }
 
   return uniqueItems
