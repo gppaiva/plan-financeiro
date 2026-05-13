@@ -303,7 +303,8 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
 
     // Try to match a transaction line: anything with R$ and a positive value
     // Main regex: captures everything before R$ as raw description, and the value after
-    const valueMatch = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?\s*$/i)
+    // Value can contain digits, dots, commas, and slashes (OCR reads comma as slash sometimes)
+    const valueMatch = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,/]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?\s*$/i)
 
     if (!valueMatch) {
       // Not a transaction line — check if it's a day or month marker
@@ -334,18 +335,21 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     }
 
     let rawDesc = valueMatch[1].trim()
-    const rawValue = valueMatch[2]
+    let rawValue = valueMatch[2]
     const trailingMonth = valueMatch[3]
 
     // Skip negative values
     if (rawValue.startsWith('-')) continue
 
+    // Handle OCR reading comma as slash: "260/10" → "260,10"
+    rawValue = rawValue.replace(/\//, ',')
+
     const valorBrl = parseBrDecimal(rawValue)
     if (isNaN(valorBrl) || valorBrl <= 0) continue
 
     // Extract day from the beginning of the description if present
-    // Patterns: "O9 eo", "11 e", "O8 o", "25 o", "O7 e", "O9l e"
-    const dayPrefixMatch = rawDesc.match(/^[O0]?(\d{1,2})[)l\]]*\s*(?:[eo]{1,2}|[●•·é])\s+(.+)$/i)
+    // Patterns: "O9 eo", "11 e", "O8 o", "25 o", "O7 e", "O9l e", "O9| e"
+    const dayPrefixMatch = rawDesc.match(/^[O0]?(\d{1,2})[)l|I\]]*\s*(?:[eo]{1,2}|[●•·é])\s+(.+)$/i)
     if (dayPrefixMatch) {
       const dayNum = parseInt(dayPrefixMatch[1], 10)
       if (dayNum >= 1 && dayNum <= 31) {
