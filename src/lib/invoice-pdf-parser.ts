@@ -30,7 +30,7 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
       canvas.height = viewport.height
       const ctx = canvas.getContext('2d')!
 
-      await page.render({ canvasContext: ctx, viewport }).promise
+      await (page.render({ canvasContext: ctx, viewport } as never).promise)
 
       // Run OCR on the canvas
       const { data } = await Tesseract.recognize(canvas, 'por', {
