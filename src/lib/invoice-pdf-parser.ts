@@ -33,8 +33,6 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
       await (page.render({ canvasContext: ctx, viewport } as never).promise)
 
       // Run OCR on the full canvas
-      // Note: On mobile/Safari, OCR may pick up text from right column (taxes, limits)
-      // The parser filters will handle removing non-transaction lines
       const { data } = await Tesseract.recognize(canvas, 'por', {
         logger: () => {}, // Suppress progress logs
       })
@@ -53,7 +51,14 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
       }
     }
 
-    pages.push(bestText)
+    // Only include pages that have "Lançamentos" or transaction-like content
+    // Skip pages that are just payment options, summaries, or legal text
+    const hasLancamentos = /lan[cç]amentos/i.test(bestText)
+    const hasTransactionPattern = /\d{2}\/\d{2}\s+\w+.*\d+[.,]\d{2}/m.test(bestText)
+
+    if (hasLancamentos || hasTransactionPattern) {
+      pages.push(bestText)
+    }
   }
 
   return pages.join('\n')
@@ -138,7 +143,15 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
               .join(' ')
           })
 
-        pages.push(sortedLines.join('\n'))
+        const pageText = sortedLines.join('\n')
+
+        // Only include pages that have "Lançamentos" or transaction patterns
+        // Skip pages with just payment options, summaries, or legal text
+        const pgHasLancamentos = /lan[cç]amentos/i.test(pageText)
+        const pgHasTransactions = /\d{2}\/\d{2}\s+\w+.*\d+[.,]\d{2}/m.test(pageText)
+        if (pgHasLancamentos || pgHasTransactions) {
+          pages.push(pageText)
+        }
       }
 
       fullText = pages.join('\n')
