@@ -70,74 +70,76 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
     })
 
     const pdf = await loadingTask.promise
-    const pages: string[] = []
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i)
-      const textContent = await page.getTextContent()
-      const viewport = page.getViewport({ scale: 1 })
-      const pageWidth = viewport.width
+    // Try text extraction first (works for PDFs with selectable text)
+    let fullText = ''
+    try {
+      const pages: string[] = []
 
-      // Group text items by their Y position to reconstruct lines properly
-      // This is critical for PDFs where text is positioned absolutely (like Bradesco)
-      const rawItems = textContent.items.filter(
-        (item) => 'str' in item && 'transform' in item && (item as { str: string }).str.trim().length > 0,
-      ) as Array<{ str: string; transform: number[] }>
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i)
+        const textContent = await page.getTextContent()
+        const viewport = page.getViewport({ scale: 1 })
+        const pageWidth = viewport.width
 
-      if (rawItems.length === 0) {
-        pages.push('')
-        continue
-      }
+        // Group text items by their Y position to reconstruct lines properly
+        const rawItems = textContent.items.filter(
+          (item) => 'str' in item && 'transform' in item && (item as { str: string }).str.trim().length > 0,
+        ) as Array<{ str: string; transform: number[] }>
 
-      // For multi-column PDFs (like Bradesco full invoice), only use left ~60% of page
-      // This avoids picking up tax tables, limits, and other info from the right column
-      const maxX = pageWidth * 0.62
+        if (rawItems.length === 0) {
+          pages.push('')
+          continue
+        }
 
-      // Group by Y coordinate (transform[5] is the Y position)
-      // Items on the same line have similar Y values (within 2px tolerance)
-      const lineMap = new Map<number, { x: number; text: string }[]>()
+        // For multi-column PDFs (like Bradesco full invoice), only use left ~60% of page
+        const maxX = pageWidth * 0.62
 
-      for (const item of rawItems) {
-        const y = Math.round(item.transform[5]) // Round Y to group nearby items
-        const x = item.transform[4] // X position for ordering
+        // Group by Y coordinate (transform[5] is the Y position)
+        const lineMap = new Map<number, { x: number; text: string }[]>()
 
-        // Skip items from the right column (tax tables, limits, etc.)
-        if (x > maxX) continue
+        for (const item of rawItems) {
+          const y = Math.round(item.transform[5])
+          const x = item.transform[4]
 
-        // Find existing line within tolerance
-        let foundY: number | null = null
-        for (const existingY of lineMap.keys()) {
-          if (Math.abs(existingY - y) <= 3) {
-            foundY = existingY
-            break
+          // Skip items from the right column
+          if (x > maxX) continue
+
+          let foundY: number | null = null
+          for (const existingY of lineMap.keys()) {
+            if (Math.abs(existingY - y) <= 3) {
+              foundY = existingY
+              break
+            }
           }
+
+          const targetY = foundY ?? y
+          if (!lineMap.has(targetY)) {
+            lineMap.set(targetY, [])
+          }
+          lineMap.get(targetY)!.push({ x, text: item.str })
         }
 
-        const targetY = foundY ?? y
-        if (!lineMap.has(targetY)) {
-          lineMap.set(targetY, [])
-        }
-        lineMap.get(targetY)!.push({ x, text: item.str })
+        // Sort lines by Y (descending because PDF Y goes bottom-to-top)
+        const sortedLines = [...lineMap.entries()]
+          .sort(([a], [b]) => b - a)
+          .map(([, lineItems]) => {
+            return lineItems
+              .sort((a, b) => a.x - b.x)
+              .map((item) => item.text)
+              .join(' ')
+          })
+
+        pages.push(sortedLines.join('\n'))
       }
 
-      // Sort lines by Y (descending because PDF Y goes bottom-to-top)
-      const sortedLines = [...lineMap.entries()]
-        .sort(([a], [b]) => b - a)
-        .map(([, items]) => {
-          // Sort items within a line by X position (left to right)
-          return items
-            .sort((a, b) => a.x - b.x)
-            .map((item) => item.text)
-            .join(' ')
-        })
-
-      pages.push(sortedLines.join('\n'))
+      fullText = pages.join('\n')
+    } catch {
+      // Text extraction failed (common on Safari/iOS) — will fall through to OCR
+      fullText = ''
     }
 
-    const fullText = pages.join('\n')
-
     // If text is empty or very short, try OCR as fallback
-    // Threshold: less than 100 chars means the PDF is likely image-based
     if (fullText.trim().length < 100) {
       const ocrText = await extractTextWithOcr(pdf)
       if (ocrText.trim().length < 20) {
