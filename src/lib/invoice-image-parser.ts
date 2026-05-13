@@ -130,7 +130,10 @@ const MONTH_ABBREVS = Object.keys(MONTH_MAP)
  * - "Final" (uppercase F) + month abbreviations → Bradesco
  * - Default to C6 if unclear
  */
-function detectBank(text: string): 'C6' | 'Bradesco' {
+function detectBank(text: string): 'C6' | 'Bradesco' | 'Riachuelo' {
+  // Riachuelo: contains "RIACHUELO" in descriptions
+  if (/RIACHUELO/i.test(text) && (/Titular/i.test(text) || /Total de gastos/i.test(text) || /Faturas/i.test(text))) return 'Riachuelo'
+
   // C6: contains "Cartão final" with lowercase 'final'
   if (/Cart[aã]o final/.test(text)) return 'C6'
 
@@ -606,7 +609,114 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
 }
 
 /**
- * Parses OCR text from invoice screenshots (C6 or Bradesco).
+ * Parses OCR text from Riachuelo app screenshots.
+ *
+ * Format:
+ *   DESCRIÇÃO                    R$ VALOR
+ *   DD/mês                         (X/Y)  ← parcela optional
+ *
+ * Skip patterns: "Faturas", "Valor a pagar", "Vencimento", "Aberta",
+ * "Todos os cartões", "Buscar lançamentos", "Titular", "Total de gastos"
+ */
+function parseRiachueloText(text: string): C6InvoiceItem[] {
+  const items: C6InvoiceItem[] = []
+  const lines = text.split(/\n/).map((l) => l.trim()).filter((l) => l.length > 0)
+
+  const skipPatterns = [
+    /^Faturas$/i,
+    /^Valor a pagar/i,
+    /^Vencimento/i,
+    /^Aberta$/i,
+    /^Todos os cart/i,
+    /^Buscar lan/i,
+    /^Titular/i,
+    /^Total de gastos/i,
+    /^Mar\s+\d{4}/i,
+    /^Abr\s+\d{4}/i,
+    /^Mai\s+\d{4}/i,
+    /^Jun\s+\d{4}/i,
+    /^\d{4}$/,
+    /^R\$ [\d.,]+$/,
+  ]
+
+  /** Maps month abbreviations (lowercase) used in Riachuelo dates */
+  const riachueloMonthMap: Record<string, string> = {
+    jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06',
+    jul: '07', ago: '08', set: '09', out: '10', nov: '11', dez: '12',
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+
+    // Skip known non-transaction lines
+    if (skipPatterns.some((p) => p.test(line))) continue
+
+    // Look for a line with R$ value
+    const valueMatch = line.match(/^(.+?)\s+R\$\s*([\d.,]+)\s*$/)
+    if (!valueMatch) continue
+
+    let descricao = valueMatch[1].trim()
+    const rawValue = valueMatch[2]
+
+    const valorBrl = parseBrDecimal(rawValue)
+    if (isNaN(valorBrl) || valorBrl <= 0) continue
+
+    // Skip if description is a header/summary
+    if (!descricao || descricao.length < 3) continue
+    if (skipPatterns.some((p) => p.test(descricao))) continue
+
+    // Next line should be: "DD/mês" optionally with "(X/Y)" parcela
+    let day = '01'
+    let month = '05'
+    let parcela = 'Única'
+
+    if (i + 1 < lines.length) {
+      const nextLine = lines[i + 1]
+      // Match "DD/mês" format like "24/dez", "16/abr", "08/mai"
+      const dateMatch = nextLine.match(/^(\d{1,2})\/(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)/i)
+      if (dateMatch) {
+        day = dateMatch[1].padStart(2, '0')
+        const monthKey = dateMatch[2].toLowerCase()
+        if (riachueloMonthMap[monthKey]) month = riachueloMonthMap[monthKey]
+        i++ // consume date line
+
+        // Check for parcela on same line: "(X/Y)" or "(1/2)"
+        const parcelaMatch = nextLine.match(/\((\d+)\/(\d+)\)/)
+        if (parcelaMatch) {
+          parcela = `${parcelaMatch[1]}/${parcelaMatch[2]}`
+        }
+      } else {
+        // Maybe parcela is on the next line without date
+        const parcelaOnly = nextLine.match(/^\((\d+)\/(\d+)\)\s*$/)
+        if (parcelaOnly) {
+          parcela = `${parcelaOnly[1]}/${parcelaOnly[2]}`
+          i++
+        }
+      }
+    }
+
+    const monthNum = parseInt(month, 10)
+    const year = inferYear(monthNum)
+    const dataCompra = `${year}-${month}-${day}`
+
+    items.push({
+      dataCompra,
+      nomeCartao: '',
+      finalCartao: '',
+      categoriaC6: '',
+      descricao,
+      parcela,
+      valorUsd: 0,
+      cotacao: 0,
+      valorBrl: Math.round(valorBrl * 100) / 100,
+    })
+  }
+
+  return items
+}
+
+/**
+ * Parses OCR text from invoice screenshots (C6, Bradesco, or Riachuelo).
  * Auto-detects the bank and applies the appropriate parser.
  */
 export function parseInvoiceScreenshotText(text: string): C6ParseOutcome {
@@ -621,7 +731,7 @@ export function parseInvoiceScreenshotText(text: string): C6ParseOutcome {
   const banco = detectBank(text)
   console.log('[Screenshot Parser] Detected bank:', banco)
 
-  const items = banco === 'C6' ? parseC6Text(text) : parseBradescoText(text)
+  const items = banco === 'C6' ? parseC6Text(text) : banco === 'Riachuelo' ? parseRiachueloText(text) : parseBradescoText(text)
 
   console.log('[Screenshot Parser] Items found:', items.length)
   items.forEach((item, idx) => console.log(`[Screenshot] Item ${idx}: ${item.descricao} = ${item.valorBrl} (${item.dataCompra})`))
@@ -630,6 +740,8 @@ export function parseInvoiceScreenshotText(text: string): C6ParseOutcome {
   if (items.length === 0) {
     const bancoMsg = banco === 'C6'
       ? 'Verifique se as imagens são screenshots do app C6.'
+      : banco === 'Riachuelo'
+      ? 'Verifique se as imagens são screenshots do app Riachuelo.'
       : 'Verifique se as imagens são screenshots do app Bradesco.'
     return { success: false, error: `Nenhuma compra encontrada nas imagens. ${bancoMsg}` }
   }
