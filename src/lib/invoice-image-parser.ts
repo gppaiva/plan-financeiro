@@ -76,24 +76,30 @@ const MONTH_MAP: Record<string, string> = {
   Dez: '12',
 }
 
+/** Month abbreviations list for detection */
+const MONTH_ABBREVS = Object.keys(MONTH_MAP)
+
 /**
  * Detects the bank from OCR text.
- * Returns "C6" or "Bradesco" based on text indicators.
+ * - "Cartão final" (lowercase 'final') → C6
+ * - "Final" (uppercase F) + month abbreviations → Bradesco
+ * - Default to C6 if unclear
  */
 function detectBank(text: string): 'C6' | 'Bradesco' {
-  // C6 indicators
-  if (/Cartão final/i.test(text)) return 'C6'
-  if (/Fatura do cart/i.test(text)) return 'C6'
+  // C6: contains "Cartão final" with lowercase 'final'
+  if (/Cart[aã]o final/.test(text)) return 'C6'
 
-  // Bradesco indicators
-  if (/Lançamentos/i.test(text)) return 'Bradesco'
-  if (/Lancamentos/i.test(text)) return 'Bradesco'
+  // Bradesco: contains "Final" (uppercase F) AND month abbreviations
+  const hasUpperFinal = /Final\s+\d{4}/.test(text)
+  const hasMonthAbbrev = MONTH_ABBREVS.some((m) =>
+    new RegExp(`\\b${m}\\b`, 'i').test(text),
+  )
+  if (hasUpperFinal && hasMonthAbbrev) return 'Bradesco'
 
-  // Check for month abbreviations alone on lines (Bradesco pattern)
-  const monthAbbrevs = Object.keys(MONTH_MAP)
+  // Also detect Bradesco by month abbreviations alone on lines
   const lines = text.split(/\n/).map((l) => l.trim())
   for (const line of lines) {
-    if (monthAbbrevs.some((m) => new RegExp(`^${m}$`, 'i').test(line))) {
+    if (MONTH_ABBREVS.some((m) => m.toLowerCase() === line.toLowerCase())) {
       return 'Bradesco'
     }
   }
@@ -109,6 +115,9 @@ function detectBank(text: string): 'C6' | 'Bradesco' {
  *   DD/MM                        ← date alone on line
  *   DESCRIPTION R$ VALUE         ← description + value on same line
  *   Cartão final XXXX            ← card number on next line
+ *
+ * Skips negative values (payments like "Inclusao de Pagamento R$ -3.361,67")
+ * Skips "Valor", "Vence em", "Subtotal", "Fatura do cartão", timestamps, month names
  */
 function parseC6Text(text: string): C6InvoiceItem[] {
   const lines = text.split(/\n/).map((l) => l.trim()).filter((l) => l.length > 0)
@@ -258,12 +267,14 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     'Total de lançamentos',
     'Resumo da fatura',
     'Total da fatura',
-    'Valor pago',
-    'Lançamentos nacionais',
-    'Lançamentos internacionais',
-    'Voltar ao topo',
+    'Gustavo P Paiva',
+    'Data Descrição Valor',
+    'Lançamentos',
     'Busque por nome',
     'Cartões da fatura',
+    'Voltar ao topo',
+    'Consulte o histórico',
+    'Conheça as taxas',
   ]
 
   let currentDay = ''
@@ -351,13 +362,7 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
         continue
       }
 
-      // Also skip "Gustavo P Paiva" lines (cardholder name)
-      if (/Gustavo\s+P\s+Paiva/i.test(descricao)) {
-        i++
-        continue
-      }
-
-      // Also skip "Final XXXX" lines
+      // Skip "Final XXXX" lines (card identifier)
       if (/^Final\s+\d{4}$/i.test(descricao)) {
         i++
         continue
