@@ -290,9 +290,9 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
   //   "12 o WWW-CASASBAHIA-COM-BR R$370,29 >Mar"
   //   "25 o JIMCOMXDCOSMETICOS R$ 260/10 >Abr"
   //
-  // Regex: look for R$ followed by a value, then extract description before it
-  // The value can use comma (99,99), dot (427.98), or slash (260/10) as decimal separator
-  const txRegex = /(?:[O0l]?\d{0,2}[)\]\s.]*)?[eo●•·.,]\s*(.+?)\s*R\$\s*([\d.,/]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?/gi
+  // Regex: look for bullet (e, o, eo) followed by description then R$ value
+  // The bullet must be preceded by start/newline or a day number
+  const txRegex = /(?:^|\n)\s*(?:[O0]?\d{0,2}[)\]\s]*)?[eo]{1,2}\s+(.+?)\s*R\$\s*([\d.,/]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?/gi
 
   let match
   while ((match = txRegex.exec(text)) !== null) {
