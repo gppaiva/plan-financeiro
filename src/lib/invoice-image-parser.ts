@@ -243,8 +243,8 @@ function parseC6Text(text: string): C6InvoiceItem[] {
       const valorMatch = descLine.match(/R\$\s*([-]?[\d.,]+)/)
       if (!valorMatch) {
         // Fallback: OCR may garble "R$" but the numeric value might still be readable
-        // Look for a number pattern like "1324.82" or "77,82" at the end or after garbled text
-        const numericFallback = descLine.match(/\b(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\b/)
+        // Look for a number pattern like "1324.82", "77,82", "1.324,82" etc.
+        const numericFallback = descLine.match(/\b(\d+(?:[.,]\d{2,3})*[.,]\d{2})\b/)
         if (numericFallback) {
           const valorBrl = parseBrDecimal(numericFallback[1])
           if (valorBrl > 0 && !isNaN(valorBrl)) {
