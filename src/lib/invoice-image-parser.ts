@@ -292,6 +292,12 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     /Vencimento/i,
     /Ver em PDF/i,
     /Parcelar/i,
+    /Total da fatura anterior/i,
+    /Lan[cç]amentos nacionais/i,
+    /Lan[cç]amentos internacionais/i,
+    /Valor pago.*cr[eé]ditos/i,
+    /Cart[oõ]es da fatura/i,
+    /R\$\s*0,00\s*$/,
   ]
 
   let currentDay = '01'
@@ -352,6 +358,9 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
       // Skip negative values (payments/credits)
       if (rawValue.startsWith('-')) continue
 
+      // Skip lines that are totals or summaries
+      if (/total/i.test(descricao)) continue
+
       const valorBrl = parseBrDecimal(rawValue)
       if (isNaN(valorBrl) || valorBrl <= 0) continue
 
@@ -399,6 +408,9 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     // Skip negative values (payments/credits)
     if (rawValue.startsWith('-')) continue
 
+    // Skip lines that are totals or summaries
+    if (/total/i.test(descricao)) continue
+
     const valorBrl = parseBrDecimal(rawValue)
     if (isNaN(valorBrl) || valorBrl <= 0) continue
 
@@ -439,15 +451,25 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     })
   }
 
-  // Deduplicate: remove items with same description + same value
+  // Deduplicate: remove items with same value + similar description
   // (screenshots may overlap and show the same transactions twice)
+  // Uses fuzzy matching: normalize description by removing spaces/special chars
+  // and compare first 10 chars + value
+  const uniqueItems: C6InvoiceItem[] = []
   const seen = new Set<string>()
-  const uniqueItems = items.filter((item) => {
-    const key = `${item.descricao.toLowerCase()}|${item.valorBrl}`
-    if (seen.has(key)) return false
+
+  for (const item of items) {
+    // Normalize: lowercase, remove non-alphanumeric, take first 12 chars
+    const normalizedDesc = item.descricao
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '')
+      .substring(0, 12)
+    const key = `${normalizedDesc}|${item.valorBrl}`
+
+    if (seen.has(key)) continue
     seen.add(key)
-    return true
-  })
+    uniqueItems.push(item)
+  }
 
   return uniqueItems
 }
