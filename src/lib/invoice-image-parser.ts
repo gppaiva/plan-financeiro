@@ -242,7 +242,47 @@ function parseC6Text(text: string): C6InvoiceItem[] {
 
       const valorMatch = descLine.match(/R\$\s*([-]?[\d.,]+)/)
       if (!valorMatch) {
-        // No R$ on next line — just continue, date is set as context
+        // Fallback: OCR may garble "R$" but the numeric value might still be readable
+        // Look for a number pattern like "1324.82" or "77,82" at the end or after garbled text
+        const numericFallback = descLine.match(/\b(\d{1,3}(?:[.,]\d{3})*[.,]\d{2})\b/)
+        if (numericFallback) {
+          const valorBrl = parseBrDecimal(numericFallback[1])
+          if (valorBrl > 0 && !isNaN(valorBrl)) {
+            // Extract description: everything before the numeric value
+            let descricao = descLine.substring(0, descLine.indexOf(numericFallback[1])).trim()
+            // Clean up garbled R$ prefix (like "Li", "Rá", "Rs")
+            descricao = descricao.replace(/\s+\S{1,3}$/, '').trim()
+
+            if (descricao && descricao.length >= 2 && !skipDescriptions.some((p) => p.test(descricao))) {
+              i++
+              let finalCartao = ''
+              let parcela = 'Única'
+
+              // Check for parcela in same line
+              const afterValue = descLine.substring(descLine.indexOf(numericFallback[1]) + numericFallback[1].length)
+              const inlineParcela = afterValue.match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/)
+              if (inlineParcela) parcela = `${inlineParcela[1]}/${inlineParcela[2]}`
+
+              if (i < lines.length) {
+                const cm = lines[i].match(/[Cc]art[aã]o\s+final\s+(\d{4})/)
+                if (cm) { finalCartao = cm[1]; const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/); if (pm) parcela = `${pm[1]}/${pm[2]}`; i++ }
+              }
+              if (i < lines.length && /^[Pp]arcela/.test(lines[i])) {
+                const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/); if (pm) parcela = `${pm[1]}/${pm[2]}`; i++
+              }
+
+              const monthNum = parseInt(currentMonth, 10)
+              const year = inferYear(monthNum)
+              items.push({
+                dataCompra: `${year}-${currentMonth}-${currentDay}`,
+                nomeCartao: '', finalCartao, categoriaC6: '', descricao, parcela,
+                valorUsd: 0, cotacao: 0, valorBrl: Math.round(valorBrl * 100) / 100,
+              })
+              continue
+            }
+          }
+        }
+        // No R$ and no numeric fallback — just continue, date is set as context
         continue
       }
 
