@@ -292,7 +292,7 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
   //
   // Regex: look for bullet (e, o, eo) followed by description then R$ value
   // The bullet must be preceded by start/newline or a day number
-  const txRegex = /(?:^|\n)\s*(?:[O0l]?\d{0,2}[)\]l\s]*)?[eo]{1,2}\s+(.+?)\s*R\$\s*([\d.,/]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?/gi
+  const txRegex = /(?:[O0l]?\d{0,2}[)\]l\s]*)?[eo]{1,2}\s+(.+?)\s*R\$\s*([\d.,/]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?/gi
 
   let match
   while ((match = txRegex.exec(text)) !== null) {
