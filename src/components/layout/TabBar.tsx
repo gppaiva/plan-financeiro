@@ -40,11 +40,13 @@ const tabs: Tab[] = [
     ),
   },
   {
-    label: 'Investimentos',
-    path: '/investments',
+    label: 'Devedores',
+    path: '/debtors',
     icon: (color) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        <path d="M12 1v22" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+        <path d="M3 3l18 18" />
       </svg>
     ),
   },

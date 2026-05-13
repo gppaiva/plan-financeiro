@@ -93,6 +93,24 @@ export interface InvestmentTransaction {
   created_at: string
 }
 
+export interface Debtor {
+  id: string
+  user_id: string
+  nome: string
+  descricao: string
+  valor_total: number
+  status: 'open' | 'paid'
+  created_at: string
+}
+
+export interface DebtorPayment {
+  id: string
+  debtor_id: string
+  valor: number
+  data_pagamento: string
+  created_at: string
+}
+
 export interface ExtraIncome {
   id: string
   user_id: string

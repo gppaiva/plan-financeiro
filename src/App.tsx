@@ -17,7 +17,7 @@ import { OnboardingPage } from './pages/onboarding/OnboardingPage'
 import { DashboardPage } from './pages/dashboard/DashboardPage'
 import { TransactionsPage } from './pages/transactions/TransactionsPage'
 import { ThirdPartyPage } from './pages/third-party/ThirdPartyPage'
-import { InvestmentsPage } from './pages/investments/InvestmentsPage'
+import { DebtorsPage } from './pages/debtors/DebtorsPage'
 import { ReportsPage } from './pages/reports/ReportsPage'
 
 function ProtectedRoute() {
@@ -252,7 +252,8 @@ function AppContent() {
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
         <Route path="/third-party" element={<ThirdPartyPage />} />
-        <Route path="/investments" element={<InvestmentsPage />} />
+        <Route path="/investments" element={<DebtorsPage />} />
+        <Route path="/debtors" element={<DebtorsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
       </Route>
 
