@@ -96,6 +96,12 @@ function detectBank(text: string): 'C6' | 'Bradesco' {
   )
   if (hasUpperFinal && hasMonthAbbrev) return 'Bradesco'
 
+  // Bradesco: "Fatura do cartão" header (without "Cartão final" which is C6)
+  if (/Fatura do cart[aã]o/i.test(text) && hasUpperFinal) return 'Bradesco'
+
+  // Bradesco: "Lançamentos" section with "Final XXXX"
+  if (/Lan[cç]amentos/i.test(text) && hasUpperFinal) return 'Bradesco'
+
   // Also detect Bradesco by month abbreviations alone on lines
   const lines = text.split(/\n/).map((l) => l.trim())
   for (const line of lines) {
@@ -250,16 +256,18 @@ function parseC6Text(text: string): C6InvoiceItem[] {
 /**
  * Parses OCR text from Bradesco app screenshots.
  *
- * Format:
- *   DD                            ← day number (large, alone or with month below)
+ * Real format from Bradesco app:
+ *   DD                            ← day number (bold, on its own or with month)
  *   Mês                           ← month abbreviation (Abr, Mai, Jun, etc.)
- *   ● DESCRIPTION           R$ VALUE >
- *   Parcela X de Y (optional)
+ *     ● DESCRIPTION         R$ VALUE  >
+ *     Parcela X de Y (optional, on next line)
  *
- * Multiple transactions on same day share the date.
+ * Multiple transactions on same day share the date header.
+ * The parser works line-by-line tracking the current day/month context.
  */
 function parseBradescoText(text: string): C6InvoiceItem[] {
   const items: C6InvoiceItem[] = []
+  const lines = text.split(/\n/).map((l) => l.trim()).filter((l) => l.length > 0)
 
   const skipPatterns = [
     /SALDO ANTERIOR/i,
@@ -279,80 +287,144 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     /Final\s+\d{4}/i,
     /PAGTO/i,
     /POR DEB/i,
+    /Fatura fechada/i,
+    /Fatura em d[eé]bito/i,
+    /Vencimento/i,
+    /Ver em PDF/i,
+    /Parcelar/i,
   ]
 
-  // Find all transaction patterns in the text
-  // The OCR produces patterns like:
-  //   "O9 eo wellhub Gustavo Pereira d R$99,99 >Abr"
-  //   "11] o ATACADAOS38AS R$427,98 >Abr"
-  //   "O8 e EBN*SPOTIFY R$40,90 >Abr"
-  //   "O LeosCabeleireiros R$1,00 >"
-  //   "12 o WWW-CASASBAHIA-COM-BR R$370,29 >Mar"
-  //   "25 o JIMCOMXDCOSMETICOS R$ 260/10 >Abr"
-  //
-  // Regex: look for bullet (e, o, eo) followed by description then R$ value
-  // The bullet must be preceded by start/newline or a day number
-  const txRegex = /(?:>?\s*[O0l]?\d{0,2}[)\]l\s]*)?[eo]{1,2}\s+(.+?)\s*R\$\s*([\d.,/]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?/gi
+  let currentDay = '01'
+  let currentMonth = '05' // Default May
 
-  let match
-  while ((match = txRegex.exec(text)) !== null) {
-    let descricao = match[1].trim()
-    let rawValue = match[2]
-    const monthAbbrev = match[3]
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
 
-    // Handle OCR reading comma as slash: "260/10" → "260,10"
-    rawValue = rawValue.replace(/\//, ',')
+    // Skip known non-transaction lines
+    if (skipPatterns.some((p) => p.test(line))) continue
 
-    // Parse value
+    // Detect day + month on same line: "07 Mai" or "25 Abr"
+    const dayMonthMatch = line.match(/^[O0]?(\d{1,2})\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s*$/i)
+    if (dayMonthMatch) {
+      const dayNum = parseInt(dayMonthMatch[1], 10)
+      if (dayNum >= 1 && dayNum <= 31) {
+        currentDay = dayNum.toString().padStart(2, '0')
+      }
+      const monthKey = Object.keys(MONTH_MAP).find(
+        (m) => m.toLowerCase() === dayMonthMatch[2].toLowerCase(),
+      )
+      if (monthKey) currentMonth = MONTH_MAP[monthKey]
+      continue
+    }
+
+    // Detect standalone day number: "07", "25", "11" (OCR may read as "O7", "O1")
+    const dayOnlyMatch = line.match(/^[O0]?(\d{1,2})\s*$/)
+    if (dayOnlyMatch) {
+      const dayNum = parseInt(dayOnlyMatch[1], 10)
+      if (dayNum >= 1 && dayNum <= 31) {
+        currentDay = dayNum.toString().padStart(2, '0')
+      }
+      continue
+    }
+
+    // Detect standalone month abbreviation: "Mai", "Abr", "Set"
+    const monthOnlyMatch = line.match(/^(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s*$/i)
+    if (monthOnlyMatch) {
+      const monthKey = Object.keys(MONTH_MAP).find(
+        (m) => m.toLowerCase() === monthOnlyMatch[1].toLowerCase(),
+      )
+      if (monthKey) currentMonth = MONTH_MAP[monthKey]
+      continue
+    }
+
+    // Detect transaction line: contains R$ with a value
+    // Format: "● DESCRIPTION R$ VALUE >" or "DESCRIPTION R$ VALUE >"
+    // Also handles OCR variants: "e DESCRIPTION R$ VALUE", "o DESCRIPTION R$ VALUE"
+    const txMatch = line.match(/^[●•·eo°.,-]*\s*(.+?)\s+R\$\s*([-]?[\d.,]+)\s*>?\s*$/i)
+    if (!txMatch) {
+      // Also try: line has R$ somewhere with description before it
+      const txMatch2 = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,]+)\s*>?\s*$/i)
+      if (!txMatch2) continue
+
+      let descricao = txMatch2[1].trim()
+      const rawValue = txMatch2[2]
+
+      // Skip negative values (payments/credits)
+      if (rawValue.startsWith('-')) continue
+
+      const valorBrl = parseBrDecimal(rawValue)
+      if (isNaN(valorBrl) || valorBrl <= 0) continue
+
+      // Clean description - remove leading bullets and OCR artifacts
+      descricao = descricao.replace(/^[●•·eo°.,-]+\s*/i, '').trim()
+      // Remove leading day+month that leaked into description line
+      descricao = descricao.replace(/^\d{1,2}\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s+/i, '').trim()
+      descricao = descricao.replace(/^\d{1,2}\s+/, '').trim()
+
+      if (!descricao || descricao.length < 3) continue
+      if (skipPatterns.some((p) => p.test(descricao))) continue
+
+      // Check next line for parcela
+      let parcela = 'Única'
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1]
+        const parcelaMatch = nextLine.match(/[Pp]arcela\s+(\d+)\s+de\s+(\d+)/)
+        if (parcelaMatch) {
+          parcela = `${parcelaMatch[1]}/${parcelaMatch[2]}`
+          i++ // Skip parcela line
+        }
+      }
+
+      const monthNum = parseInt(currentMonth, 10)
+      const year = inferYear(monthNum)
+      const dataCompra = `${year}-${currentMonth}-${currentDay}`
+
+      items.push({
+        dataCompra,
+        nomeCartao: '',
+        finalCartao: '',
+        categoriaC6: '',
+        descricao,
+        parcela,
+        valorUsd: 0,
+        cotacao: 0,
+        valorBrl: Math.round(valorBrl * 100) / 100,
+      })
+      continue
+    }
+
+    let descricao = txMatch[1].trim()
+    const rawValue = txMatch[2]
+
+    // Skip negative values (payments/credits)
+    if (rawValue.startsWith('-')) continue
+
     const valorBrl = parseBrDecimal(rawValue)
     if (isNaN(valorBrl) || valorBrl <= 0) continue
 
-    // Clean description - remove trailing spaces, OCR artifacts, leading bullets
-    descricao = descricao.replace(/\s+/g, ' ').trim()
-    descricao = descricao.replace(/^[eo●•·.,\s]+/i, '').trim()
-    // Remove leading day numbers that leaked into description
-    descricao = descricao.replace(/^\d{1,2}\s*[.\s]+/, '').trim()
+    // Clean description - remove leading bullets and OCR artifacts
+    descricao = descricao.replace(/^[●•·eo°.,-]+\s*/i, '').trim()
+    // Remove leading day+month that leaked into description
+    descricao = descricao.replace(/^\d{1,2}\s+(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s+/i, '').trim()
+    descricao = descricao.replace(/^\d{1,2}\s+/, '').trim()
 
-    if (!descricao || descricao.length < 4) continue
+    if (!descricao || descricao.length < 3) continue
+    if (skipPatterns.some((p) => p.test(descricao))) continue
 
-    // Skip descriptions that look like OCR garbage
-    if (/^[\d\s.]+$/.test(descricao)) continue
-    if (/^(.)\1+$/.test(descricao)) continue
-    if (/^[a-z\s.]{1,5}$/i.test(descricao) && !/[A-Z]/.test(descricao)) continue
-    // Skip very short descriptions with repeated chars (OCR noise like "vw EEE")
-    const uniqueChars = new Set(descricao.replace(/\s/g, '').toLowerCase()).size
-    if (uniqueChars < 4 && descricao.length < 10) continue
-    if (/(.)\1{2,}/.test(descricao) && descricao.length < 10) continue
-
-    // Check if should be skipped
-    const shouldSkip = skipPatterns.some((p) => p.test(descricao))
-    if (shouldSkip) continue
-
-    // Determine month
-    let month = '05' // Default to current month (May 2026)
-    if (monthAbbrev) {
-      const key = Object.keys(MONTH_MAP).find(
-        (m) => m.toLowerCase() === monthAbbrev.toLowerCase(),
-      )
-      if (key) month = MONTH_MAP[key]
-    }
-
-    // Try to extract day from the text before the description
-    const beforeMatch = text.substring(Math.max(0, match.index - 5), match.index + 4)
-    const dayMatch = beforeMatch.match(/[O0]?(\d{1,2})/)
-    const day = dayMatch ? dayMatch[1].padStart(2, '0') : '01'
-
-    // Check for parcela in the remaining text after the match
+    // Check next line for parcela
     let parcela = 'Única'
-    const afterMatch = text.substring(match.index + match[0].length, match.index + match[0].length + 30)
-    const parcelaMatch = afterMatch.match(/[Pp]arcela\s+(\d+)\s+de\s+(\d+)/)
-    if (parcelaMatch) {
-      parcela = `${parcelaMatch[1]}/${parcelaMatch[2]}`
+    if (i + 1 < lines.length) {
+      const nextLine = lines[i + 1]
+      const parcelaMatch = nextLine.match(/[Pp]arcela\s+(\d+)\s+de\s+(\d+)/)
+      if (parcelaMatch) {
+        parcela = `${parcelaMatch[1]}/${parcelaMatch[2]}`
+        i++ // Skip parcela line
+      }
     }
 
-    const monthNum = parseInt(month, 10)
+    const monthNum = parseInt(currentMonth, 10)
     const year = inferYear(monthNum)
-    const dataCompra = `${year}-${month}-${day}`
+    const dataCompra = `${year}-${currentMonth}-${currentDay}`
 
     items.push({
       dataCompra,

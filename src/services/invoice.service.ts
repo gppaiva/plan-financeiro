@@ -5,6 +5,21 @@ const ITEMS_TABLE = 'invoice_items'
 const EXPENSES_TABLE = 'expenses'
 
 /**
+ * Validates that a date string is a valid ISO date (YYYY-MM-DD).
+ * Returns true if valid, false otherwise.
+ */
+function isValidDate(dateStr: string): boolean {
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false
+  const [year, month, day] = dateStr.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  )
+}
+
+/**
  * Creates an invoice (expense with category "Cartão") and its items.
  * If an invoice with the same description already exists for this user in the same month,
  * it merges: adds only new items that don't already exist (by matching data_compra + descricao + valor).
@@ -24,6 +39,15 @@ export async function createInvoice(
     }>
   },
 ): Promise<Expense> {
+  // Validate all dates before sending to database
+  if (!isValidDate(data.dataVencimento)) {
+    throw new Error(`Data de vencimento inválida: "${data.dataVencimento}"`)
+  }
+  const invalidItems = data.items.filter((item) => !isValidDate(item.data_compra))
+  if (invalidItems.length > 0) {
+    const examples = invalidItems.slice(0, 3).map((i) => `"${i.data_compra}" (${i.descricao})`).join(', ')
+    throw new Error(`Data de compra inválida encontrada: ${examples}. Verifique as imagens e tente novamente.`)
+  }
   // Check if an invoice with same description already exists for this user
   const { data: existingExpenses } = await supabase
     .from(EXPENSES_TABLE)
