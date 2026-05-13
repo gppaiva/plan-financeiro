@@ -32,9 +32,9 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
 
       await (page.render({ canvasContext: ctx, viewport } as never).promise)
 
-      // Crop to left 62% of the page to avoid right column (taxes, limits, etc.)
-      // This is critical for Bradesco invoices that have 2 columns
-      const cropWidth = Math.round(canvas.width * 0.62)
+      // Crop to left 78% of the page to include R$ values column but exclude right sidebar
+      // (taxes, limits, etc. are in the rightmost ~20% of the page)
+      const cropWidth = Math.round(canvas.width * 0.78)
       const croppedCanvas = document.createElement('canvas')
       croppedCanvas.width = cropWidth
       croppedCanvas.height = canvas.height
@@ -107,8 +107,8 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
           continue
         }
 
-        // For multi-column PDFs (like Bradesco full invoice), only use left ~60% of page
-        const maxX = pageWidth * 0.62
+        // For multi-column PDFs (like Bradesco full invoice), only use left ~78% of page
+        const maxX = pageWidth * 0.78
 
         // Group by Y coordinate (transform[5] is the Y position)
         const lineMap = new Map<number, { x: number; text: string }[]>()
