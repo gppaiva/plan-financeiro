@@ -310,8 +310,19 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     // Clean description - remove trailing spaces, OCR artifacts, leading bullets
     descricao = descricao.replace(/\s+/g, ' ').trim()
     descricao = descricao.replace(/^[eo●•·.,\s]+/i, '').trim()
+    // Remove leading day numbers that leaked into description
+    descricao = descricao.replace(/^\d{1,2}\s*[.\s]+/, '').trim()
 
-    if (!descricao || descricao.length < 2) continue
+    if (!descricao || descricao.length < 4) continue
+
+    // Skip descriptions that look like OCR garbage
+    if (/^[\d\s.]+$/.test(descricao)) continue
+    if (/^(.)\1+$/.test(descricao)) continue
+    if (/^[a-z\s.]{1,5}$/i.test(descricao) && !/[A-Z]/.test(descricao)) continue
+    // Skip very short descriptions with repeated chars (OCR noise like "vw EEE")
+    const uniqueChars = new Set(descricao.replace(/\s/g, '').toLowerCase()).size
+    if (uniqueChars < 4 && descricao.length < 10) continue
+    if (/(.)\1{2,}/.test(descricao) && descricao.length < 10) continue
 
     // Check if should be skipped
     const shouldSkip = skipPatterns.some((p) => p.test(descricao))
