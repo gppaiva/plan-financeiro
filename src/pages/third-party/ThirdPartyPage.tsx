@@ -19,6 +19,7 @@ export function ThirdPartyPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [expandedPersons, setExpandedPersons] = useState<Set<string>>(new Set())
 
   // Month/Year selector
   const now = new Date()
@@ -117,6 +118,18 @@ export function ThirdPartyPage() {
     try { await toggleStatus(id) } catch { showToast('Erro ao atualizar status', 'error') }
   }
 
+  const togglePerson = useCallback((personName: string) => {
+    setExpandedPersons((prev) => {
+      const next = new Set(prev)
+      if (next.has(personName)) {
+        next.delete(personName)
+      } else {
+        next.add(personName)
+      }
+      return next
+    })
+  }, [])
+
   const iw: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 12, border: '1.5px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--card-bg)' }
   const is: React.CSSProperties = { flex: 1, border: 'none', outline: 'none', fontSize: 15, color: 'var(--text)', background: 'transparent', width: '100%' }
   const ls: React.CSSProperties = { display: 'block', fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }
@@ -152,22 +165,37 @@ export function ThirdPartyPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {Array.from(groupedByPerson.entries()).map(([personName, items]) => {
               const personTotal = items.reduce((sum, e) => sum + e.valor, 0)
+              const isExpanded = expandedPersons.has(personName)
               return (
                 <div key={personName} style={{ background: 'var(--card-bg)', borderRadius: 16, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottom: '1px solid var(--border)' }}>
+                  <div
+                    onClick={() => togglePerson(personName)}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 16, cursor: 'pointer' }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600, color: '#2563eb' }}>
                         {personName.charAt(0).toUpperCase()}
                       </div>
-                      <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{personName}</p>
+                      <div>
+                        <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{personName}</p>
+                        <p style={{ fontSize: 12, color: 'var(--text2)', margin: '2px 0 0' }}>{items.length} {items.length === 1 ? 'despesa' : 'despesas'}</p>
+                      </div>
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{formatCurrency(personTotal)}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{formatCurrency(personTotal)}</span>
+                      <svg
+                        width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                        style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease' }}
+                      >
+                        <polyline points="6 9 12 15 18 9" />
+                      </svg>
+                    </div>
                   </div>
-                  {items.map((expense) => (
+                  {isExpanded && items.map((expense) => (
                     <div
                       key={expense.id}
                       onClick={() => openEditModal(expense)}
-                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                      style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                     >
                       <div>
                         <p style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>{expense.descricao}</p>
