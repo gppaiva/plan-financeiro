@@ -24,7 +24,7 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
     for (const scale of scales) {
       const viewport = page.getViewport({ scale })
 
-      // Create canvas and render page
+      // Create canvas and render full page
       const canvas = document.createElement('canvas')
       canvas.width = viewport.width
       canvas.height = viewport.height
@@ -32,8 +32,17 @@ async function extractTextWithOcr(pdf: pdfjsLib.PDFDocumentProxy): Promise<strin
 
       await (page.render({ canvasContext: ctx, viewport } as never).promise)
 
-      // Run OCR on the canvas
-      const { data } = await Tesseract.recognize(canvas, 'por', {
+      // Crop to left 62% of the page to avoid right column (taxes, limits, etc.)
+      // This is critical for Bradesco invoices that have 2 columns
+      const cropWidth = Math.round(canvas.width * 0.62)
+      const croppedCanvas = document.createElement('canvas')
+      croppedCanvas.width = cropWidth
+      croppedCanvas.height = canvas.height
+      const croppedCtx = croppedCanvas.getContext('2d')!
+      croppedCtx.drawImage(canvas, 0, 0, cropWidth, canvas.height, 0, 0, cropWidth, canvas.height)
+
+      // Run OCR on the cropped canvas (left column only)
+      const { data } = await Tesseract.recognize(croppedCanvas, 'por', {
         logger: () => {}, // Suppress progress logs
       })
 
@@ -83,9 +92,15 @@ export async function extractTextFromPdf(data: ArrayBuffer, password?: string): 
         const pageWidth = viewport.width
 
         // Group text items by their Y position to reconstruct lines properly
-        const rawItems = textContent.items.filter(
-          (item) => 'str' in item && 'transform' in item && (item as { str: string }).str.trim().length > 0,
-        ) as Array<{ str: string; transform: number[] }>
+        const rawItems: Array<{ str: string; transform: number[] }> = []
+        for (const item of textContent.items) {
+          if (item && typeof item === 'object' && 'str' in item && 'transform' in item) {
+            const str = (item as { str: string }).str
+            if (str && str.trim().length > 0) {
+              rawItems.push({ str, transform: (item as { transform: number[] }).transform })
+            }
+          }
+        }
 
         if (rawItems.length === 0) {
           pages.push('')
