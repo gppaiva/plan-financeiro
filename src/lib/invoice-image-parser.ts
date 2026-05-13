@@ -261,19 +261,6 @@ function parseC6Text(text: string): C6InvoiceItem[] {
 function parseBradescoText(text: string): C6InvoiceItem[] {
   const items: C6InvoiceItem[] = []
 
-  // The OCR from Bradesco app screenshots produces text like:
-  // "O9 e RIACHUELO 331 R$69,99 >Set Parcela 9 de 10"
-  // "11] e ATACADAOS38AS R$427,98 >Abr Parcela 2 de 2"
-  // "O9 o wellhub Gustavo Pereira d R$99,99 >Mai"
-  // "O8 o EBN*SPOTIFY R$40,90 >Mai"
-  //
-  // Pattern: DAY BULLET DESCRIPTION R$VALUE >MONTH [Parcela X de Y]
-  // - DAY: 1-2 digits (OCR may read 0 as O, add ] or other chars)
-  // - BULLET: e, o, eo, ● (OCR reads the bullet point as a letter)
-  // - MONTH: 3-letter abbreviation after ">"
-  //
-  // We use regex to find all R$ values and work backwards to extract the transaction
-
   const skipPatterns = [
     /SALDO ANTERIOR/i,
     /Total de lan/i,
@@ -290,25 +277,39 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     /Valor pago/i,
     /Fatura do cart/i,
     /Final\s+\d{4}/i,
+    /PAGTO/i,
+    /POR DEB/i,
   ]
 
   // Find all transaction patterns in the text
-  // Pattern: optional day + bullet + description + R$ + value + > + month
-  // The regex is flexible to handle OCR noise
-  const txRegex = /(?:^|\n)\s*(?:[O0]?\d{1,2}[)\]\s]*)?[eo●•·]\s*(.+?)\s*R\$\s*([\d.,]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?/gi
+  // The OCR produces patterns like:
+  //   "O9 eo wellhub Gustavo Pereira d R$99,99 >Abr"
+  //   "11] o ATACADAOS38AS R$427,98 >Abr"
+  //   "O8 e EBN*SPOTIFY R$40,90 >Abr"
+  //   "O LeosCabeleireiros R$1,00 >"
+  //   "12 o WWW-CASASBAHIA-COM-BR R$370,29 >Mar"
+  //   "25 o JIMCOMXDCOSMETICOS R$ 260/10 >Abr"
+  //
+  // Regex: look for R$ followed by a value, then extract description before it
+  // The value can use comma (99,99), dot (427.98), or slash (260/10) as decimal separator
+  const txRegex = /(?:[O0l]?\d{0,2}[)\]\s.]*)?[eo●•·.,]\s*(.+?)\s*R\$\s*([\d.,/]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?/gi
 
   let match
   while ((match = txRegex.exec(text)) !== null) {
     let descricao = match[1].trim()
-    const rawValue = match[2]
+    let rawValue = match[2]
     const monthAbbrev = match[3]
+
+    // Handle OCR reading comma as slash: "260/10" → "260,10"
+    rawValue = rawValue.replace(/\//, ',')
 
     // Parse value
     const valorBrl = parseBrDecimal(rawValue)
     if (isNaN(valorBrl) || valorBrl <= 0) continue
 
-    // Clean description - remove trailing spaces and OCR artifacts
+    // Clean description - remove trailing spaces, OCR artifacts, leading bullets
     descricao = descricao.replace(/\s+/g, ' ').trim()
+    descricao = descricao.replace(/^[eo●•·.,\s]+/i, '').trim()
 
     if (!descricao || descricao.length < 2) continue
 
@@ -317,7 +318,7 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     if (shouldSkip) continue
 
     // Determine month
-    let month = '01'
+    let month = '05' // Default to current month (May 2026)
     if (monthAbbrev) {
       const key = Object.keys(MONTH_MAP).find(
         (m) => m.toLowerCase() === monthAbbrev.toLowerCase(),
@@ -325,9 +326,8 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
       if (key) month = MONTH_MAP[key]
     }
 
-    // Try to extract day from the text before the bullet
-    // Look backwards from the match for a day number
-    const beforeMatch = text.substring(Math.max(0, match.index - 10), match.index + 5)
+    // Try to extract day from the text before the description
+    const beforeMatch = text.substring(Math.max(0, match.index - 5), match.index + 4)
     const dayMatch = beforeMatch.match(/[O0]?(\d{1,2})/)
     const day = dayMatch ? dayMatch[1].padStart(2, '0') : '01'
 
@@ -356,7 +356,17 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     })
   }
 
-  return items
+  // Deduplicate: remove items with same description + same value
+  // (screenshots may overlap and show the same transactions twice)
+  const seen = new Set<string>()
+  const uniqueItems = items.filter((item) => {
+    const key = `${item.descricao.toLowerCase()}|${item.valorBrl}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  return uniqueItems
 }
 
 /**
