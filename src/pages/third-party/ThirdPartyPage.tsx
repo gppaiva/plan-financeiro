@@ -199,7 +199,12 @@ export function ThirdPartyPage() {
                     >
                       <div>
                         <p style={{ fontSize: 14, color: 'var(--text)', margin: 0 }}>{expense.descricao}</p>
-                        <p style={{ fontSize: 12, color: 'var(--text2)', margin: '2px 0 0' }}>{formatDate(expense.data_vencimento)}</p>
+                        <p style={{ fontSize: 12, color: 'var(--text2)', margin: '2px 0 0' }}>
+                          {(expense as Record<string, unknown>).data_compra
+                            ? `Compra: ${formatDate((expense as Record<string, unknown>).data_compra as string)} · Venc: ${formatDate(expense.data_vencimento)}`
+                            : formatDate(expense.data_vencimento)
+                          }
+                        </p>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                         <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{formatCurrency(expense.valor)}</span>

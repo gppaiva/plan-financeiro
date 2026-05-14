@@ -11,10 +11,10 @@ const TABLE = 'third_party_expenses'
 export async function listThirdPartyExpenses(
   userId: string,
   filters?: { month: number; year: number },
-): Promise<ThirdPartyExpense[]> {
+): Promise<(ThirdPartyExpense & { data_compra?: string })[]> {
   let query = supabase
     .from(TABLE)
-    .select('*')
+    .select('*, invoice_items!source_invoice_item_id(data_compra)')
     .eq('user_id', userId)
 
   if (filters) {
@@ -30,7 +30,15 @@ export async function listThirdPartyExpenses(
     throw new Error(error.message)
   }
 
-  return (data ?? []) as ThirdPartyExpense[]
+  // Flatten the joined data
+  return (data ?? []).map((item: Record<string, unknown>) => {
+    const invoiceItem = item.invoice_items as { data_compra: string } | null
+    return {
+      ...item,
+      invoice_items: undefined,
+      data_compra: invoiceItem?.data_compra ?? undefined,
+    }
+  }) as (ThirdPartyExpense & { data_compra?: string })[]
 }
 
 /**
