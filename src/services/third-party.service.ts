@@ -31,14 +31,13 @@ export async function listThirdPartyExpenses(
   }
 
   // Flatten the joined data
-  return (data ?? []).map((item: Record<string, unknown>) => {
-    const invoiceItem = item.invoice_items as { data_compra: string } | null
+  return (data ?? []).map((item) => {
+    const { invoice_items, ...rest } = item as Record<string, unknown> & { invoice_items?: { data_compra: string } | null }
     return {
-      ...item,
-      invoice_items: undefined,
-      data_compra: invoiceItem?.data_compra ?? undefined,
+      ...rest,
+      data_compra: invoice_items?.data_compra ?? undefined,
     }
-  }) as (ThirdPartyExpense & { data_compra?: string })[]
+  }) as unknown as (ThirdPartyExpense & { data_compra?: string })[]
 }
 
 /**
