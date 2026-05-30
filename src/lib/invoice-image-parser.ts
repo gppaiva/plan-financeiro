@@ -3,6 +3,7 @@ import type { C6InvoiceItem, C6ParseOutcome } from './invoice-csv-parser'
 
 /**
  * Pre-processes an image to improve OCR accuracy:
+ * - Removes cyan/blue colored text (e.g. "Em processamento" in C6 app) that interferes with value reading
  * - Detects dark backgrounds and inverts colors (critical for C6 dark theme)
  * - Increases contrast
  * - Converts to grayscale
@@ -35,7 +36,35 @@ async function preprocessImage(file: File): Promise<Blob> {
       const avgBrightness = totalBrightness / sampleCount
       const isDarkBackground = avgBrightness < 100 // Threshold: dark if avg < 100/255
 
-      // Step 2: Convert to grayscale, invert if dark background, then apply contrast + binarization
+      // Step 2: Remove cyan/teal/blue colored pixels (C6 "Em processamento" text)
+      // These pixels have high green+blue but low red, or high blue relative to red
+      // On dark background: make them black (background). On light: make them white.
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i]
+        const g = data[i + 1]
+        const b = data[i + 2]
+
+        // Detect cyan/teal: green and blue are significantly higher than red
+        // C6 "Em processamento" is approximately rgb(0, 200, 200) or similar teal
+        const isCyan = (g > 100 && b > 100 && g > r * 1.5 && b > r * 1.3)
+          || (b > 150 && g > 150 && r < 100) // Strong cyan/teal
+          || (g + b > 300 && r < 80) // Combined green+blue dominance
+
+        if (isCyan) {
+          // Replace with background color (black for dark bg, will be handled in inversion)
+          if (isDarkBackground) {
+            data[i] = 0
+            data[i + 1] = 0
+            data[i + 2] = 0
+          } else {
+            data[i] = 255
+            data[i + 1] = 255
+            data[i + 2] = 255
+          }
+        }
+      }
+
+      // Step 3: Convert to grayscale, invert if dark background, then apply contrast + binarization
       const contrast = 60
       const factor = (259 * (contrast + 255)) / (255 * (259 - contrast))
       const binarizeThreshold = 140 // Pixels above this become white, below become black
