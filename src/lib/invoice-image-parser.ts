@@ -104,6 +104,7 @@ export async function extractTextFromImages(
 /**
  * Parses a Brazilian decimal number string like "1.234,56" or "1234,56" to a number.
  * Also handles OCR misreads like "1,324.82" (inverted separators) or spaces in numbers.
+ * Handles missing comma: "1.32482" → likely "1.324,82" (OCR lost the comma)
  */
 function parseBrDecimal(value: string): number {
   if (!value) return NaN
@@ -121,13 +122,28 @@ function parseBrDecimal(value: string): number {
     // "324,82" or "1324,82" → comma is decimal separator
     return parseFloat(trimmed.replace(',', '.'))
   } else if (hasDot && !hasComma) {
-    // "1324.82" → dot is decimal separator (OCR may read comma as dot)
-    // But "1.324" with exactly 3 digits after dot is likely thousands separator
+    // Cases with dot but no comma
     const parts = trimmed.split('.')
-    if (parts.length === 2 && parts[1].length === 3) {
-      // "1.324" → likely 1324 (thousands separator, no decimals)
-      // But in context of money, this is ambiguous. Treat as 1324.
-      return parseFloat(trimmed.replace('.', ''))
+    if (parts.length === 2) {
+      const afterDot = parts[1]
+      if (afterDot.length === 3) {
+        // "1.324" → thousands separator, no decimals → 1324
+        return parseFloat(trimmed.replace('.', ''))
+      } else if (afterDot.length === 5) {
+        // "1.32482" → OCR lost the comma, likely "1.324,82" → 1324.82
+        // Pattern: X.YYYCC where YYY is thousands part and CC is cents
+        return parseFloat(parts[0] + afterDot.substring(0, 3) + '.' + afterDot.substring(3))
+      } else if (afterDot.length === 4) {
+        // "1.3248" → could be "1.324,8" (unlikely) or "1324.8" — treat as thousands + 1 decimal
+        // More likely OCR lost last digit of cents. Treat as thousands separator.
+        return parseFloat(parts[0] + afterDot)
+      } else if (afterDot.length === 2) {
+        // "1324.82" → dot is decimal separator
+        return parseFloat(trimmed)
+      } else if (afterDot.length === 1) {
+        // "1324.8" → dot is decimal separator
+        return parseFloat(trimmed)
+      }
     }
     return parseFloat(trimmed)
   } else {
@@ -284,18 +300,33 @@ function parseC6Text(text: string): C6InvoiceItem[] {
       // Skip if next line is a skip pattern or another date
       if (skipPatterns.some((p) => p.test(descLine)) || /^[O0]?\d{1,2}\/[O0]?\d{1,2}\s*$/.test(descLine)) continue
 
-      const valorMatch = descLine.match(/R\$\s*([-]?[\d.,]+)/)
+      const valorMatch = descLine.match(/R[\$S5]\s*([-]?[\d.,]+)/)
       if (!valorMatch) {
         // Fallback: OCR may garble "R$" but the numeric value might still be readable
-        // Look for a number pattern like "1324.82", "77,82", "1.324,82" etc.
+        // Look for a number pattern like "1324.82", "77,82", "1.324,82", "1.32482" etc.
         const numericFallback = descLine.match(/\b(\d+(?:[.,]\d{2,3})*[.,]\d{2})\b/)
+          // Also try: bare number with 3-7 digits at end of line (OCR lost separators)
+          // e.g. "26750" → 267.50, "28755" → 287.55
+          || descLine.match(/\b(\d{3,7})\s*$/)
         if (numericFallback) {
-          const valorBrl = parseBrDecimal(numericFallback[1])
+          let rawNum = numericFallback[1]
+          let valorBrl: number
+
+          // If it's a bare integer (no separators) with 4+ digits, assume last 2 are cents
+          if (/^\d{4,7}$/.test(rawNum)) {
+            valorBrl = parseInt(rawNum, 10) / 100
+          } else {
+            valorBrl = parseBrDecimal(rawNum)
+          }
           if (valorBrl > 0 && !isNaN(valorBrl)) {
             // Extract description: everything before the numeric value
             let descricao = descLine.substring(0, descLine.indexOf(numericFallback[1])).trim()
             // Clean up garbled R$ prefix (like "Li", "Rá", "Rs")
             descricao = descricao.replace(/\s+\S{1,3}$/, '').trim()
+            // Remove "Em processamento" or "Em Proce" fragments from description
+            descricao = descricao.replace(/\s*Em\s+Proc?e?s?s?a?m?e?n?t?o?\s*/gi, '').trim()
+            // Remove trailing dashes, pipes, special chars
+            descricao = descricao.replace(/[\s—–\-|]+$/, '').trim()
 
             if (descricao && descricao.length >= 2 && !skipDescriptions.some((p) => p.test(descricao))) {
               i++
@@ -340,7 +371,11 @@ function parseC6Text(text: string): C6InvoiceItem[] {
       }
 
       const valorBrl = parseBrDecimal(rawValue)
-      let descricao = descLine.substring(0, descLine.indexOf('R$')).trim()
+      let descricao = descLine.substring(0, descLine.search(/R[\$S5]\s*/)).trim()
+      // Remove "Em processamento" fragments from description
+      descricao = descricao.replace(/\s*Em\s+Proc?e?s?s?a?m?e?n?t?o?\s*/gi, '').trim()
+      // Remove trailing dashes, pipes, special chars
+      descricao = descricao.replace(/[\s—–\-|]+$/, '').trim()
 
       if (!descricao || descricao.length < 2) continue
       if (skipDescriptions.some((p) => p.test(descricao))) {
@@ -387,8 +422,8 @@ function parseC6Text(text: string): C6InvoiceItem[] {
       continue
     }
 
-    // Check for inline: "DD/MM DESCRIPTION R$ VALUE" (OCR may read 0 as O)
-    const inlineMatch = line.match(/^([O0]?\d{1,2})\/([O0]?\d{1,2})\s+(.+?)\s+R\$\s*([-]?[\d.,]+)/)
+    // Check for inline: "DD/MM DESCRIPTION R$ VALUE" (OCR may read 0 as O, space may be missing)
+    const inlineMatch = line.match(/^([O0]?\d{1,2})\/([O0]?\d{1,2})\s*(.+?)\s+R[\$S5]\s*([-]?[\d.,]+)/)
     if (inlineMatch) {
       currentDay = inlineMatch[1].replace(/O/g, '0').padStart(2, '0')
       currentMonth = inlineMatch[2].replace(/O/g, '0').padStart(2, '0')
@@ -425,9 +460,59 @@ function parseC6Text(text: string): C6InvoiceItem[] {
       continue
     }
 
+    // Check for inline with date glued to description and bare number at end (no R$)
+    // e.g. "29/05EC *SHELLBOX RIO DE Em Proce 26750" or "29/05KEETABR... 4616"
+    const inlineBareDateMatch = line.match(/^([O0]?\d{1,2})\/([O0]?\d{1,2})\s*(.+?)\s+(\d{3,7})\s*$/)
+    if (inlineBareDateMatch) {
+      const potentialDay = inlineBareDateMatch[1].replace(/O/g, '0').padStart(2, '0')
+      const potentialMonth = inlineBareDateMatch[2].replace(/O/g, '0').padStart(2, '0')
+      const rawDesc = inlineBareDateMatch[3].trim()
+      const bareNum = inlineBareDateMatch[4]
+      i++
+
+      // Only accept if next line is "Cartão final XXXX"
+      if (i < lines.length && /[Cc]art[aã]o\s+final\s+\d{4}/.test(lines[i])) {
+        currentDay = potentialDay
+        currentMonth = potentialMonth
+        // Bare integer: assume last 2 digits are cents
+        const valorBrl = parseInt(bareNum, 10) / 100
+
+        let descricao = rawDesc
+          .replace(/\s*Em\s+Proc?e?s?s?a?m?e?n?t?o?\s*/gi, '')
+          .replace(/\s*Em\s+Pre\s*\w*\s*/gi, '')
+          .replace(/[\s—–\-|]+$/, '')
+          .trim()
+
+        if (valorBrl > 0 && descricao.length >= 2 && !skipDescriptions.some((p) => p.test(descricao))) {
+          let finalCartao = ''
+          let parcela = 'Única'
+          const cm = lines[i].match(/[Cc]art[aã]o\s+final\s+(\d{4})/)
+          if (cm) { finalCartao = cm[1]; i++ }
+          if (i < lines.length && /^[Pp]arcela/.test(lines[i])) {
+            const pm = lines[i].match(/[Pp]arcela[s]?\s+(\d+)\s+de\s+(\d+)/)
+            if (pm) parcela = `${pm[1]}/${pm[2]}`
+            i++
+          }
+
+          const monthNum = parseInt(currentMonth, 10)
+          const year = inferYear(monthNum)
+          items.push({
+            dataCompra: `${year}-${currentMonth}-${currentDay}`,
+            nomeCartao: '', finalCartao, categoriaC6: '', descricao, parcela,
+            valorUsd: 0, cotacao: 0, valorBrl: Math.round(valorBrl * 100) / 100,
+          })
+          continue
+        }
+      }
+      // If not confirmed by Cartão final, rewind
+      i--
+      i++
+      continue
+    }
+
     // Fallback: line has "DESCRIPTION R$ VALUE" without date prefix
     // Only accept if next line confirms it's a transaction (contains "Cartão final")
-    const fallbackMatch = line.match(/^(.+?)\s+R\$\s*([-]?[\d.,]+)/)
+    const fallbackMatch = line.match(/^(.+?)\s+R[\$S5]\s*([-]?[\d.,]+)/)
     if (fallbackMatch) {
       const rawValue = fallbackMatch[2]
       let descricao = fallbackMatch[1].trim()
