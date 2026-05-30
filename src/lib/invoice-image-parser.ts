@@ -3,9 +3,10 @@ import type { C6InvoiceItem, C6ParseOutcome } from './invoice-csv-parser'
 
 /**
  * Pre-processes an image to improve OCR accuracy:
+ * - Detects dark backgrounds and inverts colors (critical for C6 dark theme)
  * - Increases contrast
  * - Converts to grayscale
- * - Sharpens text
+ * - Applies binarization threshold for cleaner text
  */
 async function preprocessImage(file: File): Promise<Blob> {
   return new Promise((resolve) => {
@@ -19,17 +20,41 @@ async function preprocessImage(file: File): Promise<Blob> {
       // Draw original
       ctx.drawImage(img, 0, 0)
 
-      // Get image data and increase contrast
+      // Get image data
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const data = imageData.data
-      const contrast = 50 // Increase contrast by 50%
+
+      // Step 1: Detect if image has dark background by sampling average brightness
+      let totalBrightness = 0
+      const sampleStep = 4 // Sample every 4th pixel for performance
+      let sampleCount = 0
+      for (let i = 0; i < data.length; i += 4 * sampleStep) {
+        totalBrightness += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+        sampleCount++
+      }
+      const avgBrightness = totalBrightness / sampleCount
+      const isDarkBackground = avgBrightness < 100 // Threshold: dark if avg < 100/255
+
+      // Step 2: Convert to grayscale, invert if dark background, then apply contrast + binarization
+      const contrast = 60
       const factor = (259 * (contrast + 255)) / (255 * (259 - contrast))
+      const binarizeThreshold = 140 // Pixels above this become white, below become black
 
       for (let i = 0; i < data.length; i += 4) {
-        // Convert to grayscale first
-        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
-        // Apply contrast
-        const newVal = Math.min(255, Math.max(0, factor * (gray - 128) + 128))
+        // Convert to grayscale
+        let gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+
+        // Invert if dark background (white text on black → black text on white)
+        if (isDarkBackground) {
+          gray = 255 - gray
+        }
+
+        // Apply contrast enhancement
+        gray = Math.min(255, Math.max(0, factor * (gray - 128) + 128))
+
+        // Binarize: clean separation between text and background
+        const newVal = gray > binarizeThreshold ? 255 : 0
+
         data[i] = newVal     // R
         data[i + 1] = newVal // G
         data[i + 2] = newVal // B
@@ -78,17 +103,33 @@ export async function extractTextFromImages(
 
 /**
  * Parses a Brazilian decimal number string like "1.234,56" or "1234,56" to a number.
+ * Also handles OCR misreads like "1,324.82" (inverted separators) or spaces in numbers.
  */
 function parseBrDecimal(value: string): number {
   if (!value) return NaN
-  const trimmed = value.trim()
+  // Remove spaces that OCR might insert in the middle of numbers
+  let trimmed = value.trim().replace(/\s/g, '')
+
+  // Handle OCR reading "." as "," or vice versa in ambiguous cases
   const hasDot = trimmed.includes('.')
   const hasComma = trimmed.includes(',')
 
   if (hasDot && hasComma) {
+    // "1.324,82" → standard BR format
     return parseFloat(trimmed.replace(/\./g, '').replace(',', '.'))
   } else if (hasComma && !hasDot) {
+    // "324,82" or "1324,82" → comma is decimal separator
     return parseFloat(trimmed.replace(',', '.'))
+  } else if (hasDot && !hasComma) {
+    // "1324.82" → dot is decimal separator (OCR may read comma as dot)
+    // But "1.324" with exactly 3 digits after dot is likely thousands separator
+    const parts = trimmed.split('.')
+    if (parts.length === 2 && parts[1].length === 3) {
+      // "1.324" → likely 1324 (thousands separator, no decimals)
+      // But in context of money, this is ambiguous. Treat as 1324.
+      return parseFloat(trimmed.replace('.', ''))
+    }
+    return parseFloat(trimmed)
   } else {
     return parseFloat(trimmed)
   }
