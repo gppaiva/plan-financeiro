@@ -85,12 +85,14 @@ export async function updateThirdPartyExpense(
 
 /**
  * Deletes a third-party expense by id.
+ * If it was redirected from an invoice item, returns the value back to the invoice.
+ * If the original invoice item was deleted (value was fully redirected), recreates it.
  */
 export async function deleteThirdPartyExpense(id: string): Promise<void> {
-  // First, check if this expense was redirected from an invoice item
+  // First, get full info about this expense before deleting
   const { data: expense } = await supabase
     .from(TABLE)
-    .select('source_invoice_item_id, valor')
+    .select('source_invoice_item_id, valor, descricao, data_vencimento, user_id')
     .eq('id', id)
     .single()
 
@@ -110,11 +112,12 @@ export async function deleteThirdPartyExpense(id: string): Promise<void> {
       // Get current invoice item value
       const { data: item } = await supabase
         .from('invoice_items')
-        .select('valor, expense_id')
+        .select('id, valor, expense_id, descricao, data_compra, categoria_c6, parcela')
         .eq('id', expense.source_invoice_item_id)
         .single()
 
       if (item) {
+        // Item still exists — add back the value
         const newItemValor = Math.round((Number(item.valor) + Number(expense.valor)) * 100) / 100
 
         // Update invoice item value
@@ -131,16 +134,60 @@ export async function deleteThirdPartyExpense(id: string): Promise<void> {
 
         if (allItems) {
           const newTotal = allItems.reduce((sum: number, i: { valor: number }) => sum + Number(i.valor), 0)
+          // Add the value we just updated (allItems may have stale data)
           const roundedTotal = Math.round(newTotal * 100) / 100
           await supabase
             .from('expenses')
             .update({ valor: roundedTotal })
             .eq('id', item.expense_id)
         }
+      } else {
+        // Item was deleted (full value was redirected) — recreate it
+        // Find the parent expense (invoice) by looking for invoices that match
+        // the data_vencimento of this third-party expense
+        const { data: invoiceExpenses } = await supabase
+          .from('expenses')
+          .select('id')
+          .eq('user_id', expense.user_id)
+          .eq('categoria', 'Cartão')
+          .eq('data_vencimento', expense.data_vencimento)
+          .limit(1)
+
+        if (invoiceExpenses && invoiceExpenses.length > 0) {
+          const invoiceExpenseId = invoiceExpenses[0].id
+
+          // Recreate the invoice item
+          await supabase
+            .from('invoice_items')
+            .insert({
+              id: expense.source_invoice_item_id, // Reuse the same ID
+              expense_id: invoiceExpenseId,
+              data_compra: expense.data_vencimento, // Best approximation
+              descricao: expense.descricao,
+              categoria_c6: '',
+              parcela: 'Única',
+              valor: expense.valor,
+            })
+
+          // Recalculate total
+          const { data: allItems } = await supabase
+            .from('invoice_items')
+            .select('valor')
+            .eq('expense_id', invoiceExpenseId)
+
+          if (allItems) {
+            const newTotal = allItems.reduce((sum: number, i: { valor: number }) => sum + Number(i.valor), 0)
+            const roundedTotal = Math.round(newTotal * 100) / 100
+            await supabase
+              .from('expenses')
+              .update({ valor: roundedTotal })
+              .eq('id', invoiceExpenseId)
+          }
+        }
       }
-    } catch {
+    } catch (err) {
       // Value return failed but expense was already deleted — log but don't throw
-      console.error('Erro ao retornar valor para item da fatura')
+      console.error('Erro ao retornar valor para item da fatura:', err)
     }
   }
 }
