@@ -661,7 +661,8 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     // Try to match a transaction line: anything with R$ and a value
     // Value can contain digits, dots, commas, and slashes (OCR reads comma as slash sometimes)
     // Also handle "RS" or "R5" as OCR misread of "R$"
-    const valueMatch = line.match(/^(.+?)\s+R[\$S5s]\s*([-]?[\d.,/]+)\s*>?\s*(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?\s*$/i)
+    // After the value, OCR may produce >, ©, *, -, ®, or other garbage — accept anything non-digit
+    const valueMatch = line.match(/^(.+?)\s+R[\$S5s]\s*([-]?[\d.,/]+)\s*[^\d]*?(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)?\s*$/i)
 
     if (!valueMatch) {
       // Not a transaction line — check if it's a day or month marker
@@ -708,9 +709,10 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     if (isNaN(valorBrl) || valorBrl <= 0) continue
 
     // Extract day from the beginning of the description if present
-    // Patterns: "O9 eo", "11 e", "O8 o", "25 o", "O7 e", "O9l e", "O9| e"
+    // Patterns: "O9 eo", "11 e", "O8 o", "25 o", "O7 e", "O9l e", "O9| e", "22 ec"
     // Also: "22 e", "22 ●", "22  DESCRIPTION" (double space between day and desc)
-    const dayPrefixMatch = rawDesc.match(/^[O0]?(\d{1,2})[)l|I\]]*\s*(?:[eo]{1,2}|[●•·é°.])\s+(.+)$/i)
+    // OCR may read bullet as: e, o, eo, ec, ©, ●, •, ·, é, °, .
+    const dayPrefixMatch = rawDesc.match(/^[O0]?(\d{1,2})[)l|I\]]*\s*(?:[eco©]{1,2}|[●•·é°.""])\s+(.+)$/i)
     if (dayPrefixMatch) {
       const dayNum = parseInt(dayPrefixMatch[1], 10)
       if (dayNum >= 1 && dayNum <= 31) {
@@ -729,9 +731,9 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
         }
       } else {
         // Try simpler prefix: just bullet without day number
-        // "e DESCRIPTION", "o DESCRIPTION", "eo DESCRIPTION", "● DESCRIPTION"
-        rawDesc = rawDesc.replace(/^[●•·°.,-]+\s*/, '').trim()
-        rawDesc = rawDesc.replace(/^[SIl]?\s*[eo]{1,2}\s+/i, '').trim()
+        // "e DESCRIPTION", "o DESCRIPTION", "eo DESCRIPTION", "● DESCRIPTION", "ec DESCRIPTION"
+        rawDesc = rawDesc.replace(/^[●•·°©.,""-]+\s*/, '').trim()
+        rawDesc = rawDesc.replace(/^[SIl]?\s*[eco©]{1,2}\s+/i, '').trim()
         rawDesc = rawDesc.replace(/^[éè]\s+/i, '').trim()
         // Remove standalone day number prefix without bullet (single space ok if followed by known patterns)
         const simpleDayMatch = rawDesc.match(/^[O0]?(\d{1,2})\s+(.+)$/)
@@ -746,8 +748,8 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     }
 
     // Remove leading bullet characters that remain after day extraction
-    rawDesc = rawDesc.replace(/^[●•·°.,-]+\s*/, '').trim()
-    rawDesc = rawDesc.replace(/^[eo]{1,2}\s+/i, '').trim()
+    rawDesc = rawDesc.replace(/^[●•·°©.,""-]+\s*/, '').trim()
+    rawDesc = rawDesc.replace(/^[eco©]{1,2}\s+/i, '').trim()
 
     // Update month from trailing month abbreviation if present
     if (trailingMonth) {
@@ -762,13 +764,19 @@ function parseBradescoText(text: string): C6InvoiceItem[] {
     // Skip known non-transaction descriptions
     if (skipDescriptions.some((p) => p.test(descricao))) continue
 
-    // Check next line for parcela
+    // Check next line for parcela (may be standalone or combined with month: "Abr Parcela 2 de 2")
     let parcela = 'Única'
     if (i + 1 < lines.length) {
       const nextLine = lines[i + 1]
       const parcelaMatch = nextLine.match(/[Pp]arcela\s+(\d+)\s+de\s+(\d+)/)
       if (parcelaMatch) {
         parcela = `${parcelaMatch[1]}/${parcelaMatch[2]}`
+        // Also extract month if present on same line: "Abr Parcela 2 de 2"
+        const monthInParcelaLine = nextLine.match(/^(Jan|Fev|Mar|Abr|Mai|Jun|Jul|Ago|Set|Out|Nov|Dez)\s+/i)
+        if (monthInParcelaLine) {
+          const monthKey = Object.keys(MONTH_MAP).find((m) => m.toLowerCase() === monthInParcelaLine[1].toLowerCase())
+          if (monthKey) currentMonth = MONTH_MAP[monthKey]
+        }
         i++ // Skip parcela line
       }
     }

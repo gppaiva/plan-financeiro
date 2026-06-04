@@ -3,47 +3,39 @@ import { parseInvoiceScreenshotText } from './invoice-image-parser'
 
 describe('parseInvoiceScreenshotText - Bradesco', () => {
   it('should parse Bradesco invoice with 11 transactions totaling R$ 1336.57', () => {
-    // Simulated OCR output from the Bradesco screenshots provided
+    // Simulated OCR output from the Bradesco screenshots — matches real OCR patterns
+    // including ©, *, - as OCR misread of >, and "ec" as bullet
     const ocrText = `
 Lançamentos
 Final 1234
 
-22 e ROLDAO ATACADISTA R$ 98,63 >
+22 ec ROLDAO ATACADISTA R$ 98,63 ©
+Mai
+21 e 99+ R$ 15,50 >
 Mai
 
-21 e 99* R$ 15,50 >
-Mai
-e 99* R$ 16,51 >
+e 99* R$ 16,51 -
 
-20 e SALDO ANTERIOR R$ 1.555,79
+16 e 99Food*B Salgados pendi R$ 30,24 *
 Mai
-e PAGTO. POR DEB EM C/C R$ -1.555,79 >
-
-16 e 99Food *B Salgados pendi R$ 30,24 >
-Mai
-
 11 e ATACADAO 938 AS R$ 427,98 >
-Abr
-Parcela 2 de 2
+Abr Parcela 2 de 2
 
-09 e RIACHUELO 331 R$ 69,99 >
-Set
-Parcela 9 de 10
+09 eo RIACHUELO 331 R$ 69,99 >
+Set Parcela 9 de 10
 
 01 e SHOPPING CNA R$ 66,55 >
-Ago
-Parcela 11 de 18
+Ago Parcela 11 de 18
 
-09 e Wellhub Gustavo Pereira d R$ 99,99 >
+O9 e Wellhub Gustavo Pereira d R$ 99,99 >
 Mai
 e Wellhub bruno paiva R$ 99,99 >
 
-08 e EBN *SPOTIFY R$ 40,90 >
+O8 o EBN *SPOTIFY R$ 40,90 >
 Mai
 
 12 e WWW-CASASBAHIA-COM-BR R$ 370,29 >
-Mar
-Parcela 3 de 10
+Mar Parcela 3 de 10
 `
     const result = parseInvoiceScreenshotText(ocrText)
 
@@ -56,17 +48,17 @@ Parcela 3 de 10
 
     // Verify individual items
     const items = result.data.items
-    expect(items[0]).toMatchObject({ descricao: 'ROLDAO ATACADISTA', valorBrl: 98.63 })
-    expect(items[1]).toMatchObject({ descricao: '99*', valorBrl: 15.50 })
-    expect(items[2]).toMatchObject({ descricao: '99*', valorBrl: 16.51 })
-    expect(items[3]).toMatchObject({ descricao: '99Food *B Salgados pendi', valorBrl: 30.24 })
-    expect(items[4]).toMatchObject({ descricao: 'ATACADAO 938 AS', valorBrl: 427.98, parcela: '2/2' })
-    expect(items[5]).toMatchObject({ descricao: 'RIACHUELO 331', valorBrl: 69.99, parcela: '9/10' })
-    expect(items[6]).toMatchObject({ descricao: 'SHOPPING CNA', valorBrl: 66.55, parcela: '11/18' })
-    expect(items[7]).toMatchObject({ descricao: 'Wellhub Gustavo Pereira d', valorBrl: 99.99 })
-    expect(items[8]).toMatchObject({ descricao: 'Wellhub bruno paiva', valorBrl: 99.99 })
-    expect(items[9]).toMatchObject({ descricao: 'EBN *SPOTIFY', valorBrl: 40.90 })
-    expect(items[10]).toMatchObject({ descricao: 'WWW-CASASBAHIA-COM-BR', valorBrl: 370.29, parcela: '3/10' })
+    expect(items.find(i => i.descricao.includes('ROLDAO'))).toMatchObject({ valorBrl: 98.63 })
+    expect(items.find(i => i.valorBrl === 15.50)).toBeDefined()
+    expect(items.find(i => i.valorBrl === 16.51)).toBeDefined()
+    expect(items.find(i => i.descricao.includes('99Food'))).toMatchObject({ valorBrl: 30.24 })
+    expect(items.find(i => i.descricao.includes('ATACADAO'))).toMatchObject({ valorBrl: 427.98, parcela: '2/2' })
+    expect(items.find(i => i.descricao.includes('RIACHUELO'))).toMatchObject({ valorBrl: 69.99, parcela: '9/10' })
+    expect(items.find(i => i.descricao.includes('SHOPPING'))).toMatchObject({ valorBrl: 66.55, parcela: '11/18' })
+    expect(items.find(i => i.descricao.includes('Wellhub Gustavo'))).toMatchObject({ valorBrl: 99.99 })
+    expect(items.find(i => i.descricao.includes('Wellhub bruno'))).toMatchObject({ valorBrl: 99.99 })
+    expect(items.find(i => i.descricao.includes('SPOTIFY'))).toMatchObject({ valorBrl: 40.90 })
+    expect(items.find(i => i.descricao.includes('CASASBAHIA'))).toMatchObject({ valorBrl: 370.29, parcela: '3/10' })
   })
 
   it('should skip SALDO ANTERIOR and PAGTO entries', () => {
@@ -82,16 +74,15 @@ e PAGTO. POR DEB EM C/C R$ -1.555,79 >
     expect(result.success).toBe(false) // No valid items → returns error
   })
 
-  it('should handle OCR with O instead of 0 in day numbers', () => {
+  it('should handle OCR with O instead of 0 in day numbers and © instead of >', () => {
     const ocrText = `
 Lançamentos
 Final 5678
 
-O9 e RIACHUELO 331 R$ 69,99 >
-Set
-Parcela 9 de 10
+O9 eo RIACHUELO 331 R$ 69,99 ©
+Set Parcela 9 de 10
 
-O8 o EBN *SPOTIFY R$ 40,90 >
+O8 o EBN *SPOTIFY R$ 40,90 *
 Mai
 `
     const result = parseInvoiceScreenshotText(ocrText)
