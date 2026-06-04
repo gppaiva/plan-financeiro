@@ -116,6 +116,14 @@ export function InvoiceDetailModal({
       showToast('Valor não pode ser maior que o valor do item', 'error')
       return
     }
+
+    // Confirmation dialog
+    const valorFormatado = valorToRedirect.toFixed(2).replace('.', ',')
+    const confirmed = window.confirm(
+      `Você está direcionando R$ ${valorFormatado} para o terceiro "${redirectPessoa.trim()}", deseja continuar?`
+    )
+    if (!confirmed) return
+
     setRedirecting(true)
     try {
       // 1. Create third-party expense with link to invoice item
