@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Modal } from '../../components/ui/Modal'
 import { useToast } from '../../components/ui/Toast'
 import { listInvoiceItems, updateInvoiceItem } from '../../services/invoice.service'
+import { parseInvoiceScreenshots } from '../../lib/invoice-image-parser'
 import { formatCurrency, formatDate } from '../../lib/format'
 import { supabase } from '../../lib/supabase'
 import type { Expense, InvoiceItem } from '../../types'
@@ -29,6 +30,19 @@ export function InvoiceDetailModal({
   const [redirectPessoa, setRedirectPessoa] = useState('')
   const [redirectValor, setRedirectValor] = useState('')
   const [redirecting, setRedirecting] = useState(false)
+
+  // Manual add state
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [addDescricao, setAddDescricao] = useState('')
+  const [addValor, setAddValor] = useState('')
+  const [addDataCompra, setAddDataCompra] = useState(new Date().toISOString().split('T')[0])
+  const [addParcela, setAddParcela] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  // Upload state
+  const [uploadFiles, setUploadFiles] = useState<File[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
   const fetchItems = useCallback(async () => {
     if (!expense?.id) return
@@ -99,6 +113,133 @@ export function InvoiceDetailModal({
       handleConfirmEdit()
     } else if (e.key === 'Escape') {
       handleCancelEdit()
+    }
+  }
+
+  const handleAddItem = async () => {
+    if (!addDescricao.trim()) {
+      showToast('Informe a descrição', 'error')
+      return
+    }
+    const valor = parseFloat(addValor)
+    if (isNaN(valor) || valor <= 0) {
+      showToast('Valor deve ser maior que zero', 'error')
+      return
+    }
+    if (!addDataCompra) {
+      showToast('Informe a data da compra', 'error')
+      return
+    }
+
+    setAdding(true)
+    try {
+      const { data: newItem, error } = await supabase
+        .from('invoice_items')
+        .insert({
+          expense_id: expense.id,
+          descricao: addDescricao.trim(),
+          valor,
+          data_compra: addDataCompra,
+          categoria_c6: '',
+          parcela: addParcela.trim() || 'Única',
+        })
+        .select()
+        .single()
+
+      if (error) throw new Error(error.message)
+
+      // Update local items list
+      setItems((prev) => [...prev, newItem as InvoiceItem])
+
+      // Recalculate total
+      const newTotal = Math.round((total + valor) * 100) / 100
+      await supabase.from('expenses').update({ valor: newTotal }).eq('id', expense.id)
+      onExpenseUpdated({ ...expense, valor: newTotal })
+
+      showToast('Transação adicionada!', 'success')
+      setShowAddForm(false)
+      setAddDescricao('')
+      setAddValor('')
+      setAddDataCompra(new Date().toISOString().split('T')[0])
+      setAddParcela('')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao adicionar'
+      showToast(msg, 'error')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const handleUploadImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+
+    const fileArray = Array.from(files)
+    setUploadFiles(fileArray)
+    setUploading(true)
+    setUploadProgress({ current: 0, total: fileArray.length })
+
+    try {
+      const outcome = await parseInvoiceScreenshots(
+        fileArray,
+        (current, total) => setUploadProgress({ current, total }),
+      )
+
+      if (!outcome.success) {
+        showToast(outcome.error, 'error')
+        return
+      }
+
+      const parsedItems = outcome.data.items
+
+      // Filter out items that already exist (by description + valor)
+      const existingSet = new Set(
+        items.map((i) => `${i.descricao.toLowerCase().replace(/[^a-z0-9]/g, '')}|${i.valor}`)
+      )
+
+      const newItems = parsedItems.filter((pi) => {
+        const key = `${pi.descricao.toLowerCase().replace(/[^a-z0-9]/g, '')}|${pi.valorBrl}`
+        return !existingSet.has(key)
+      })
+
+      if (newItems.length === 0) {
+        showToast(`Nenhuma transação nova encontrada. Todas já estão na fatura.`, 'success')
+        return
+      }
+
+      // Insert new items
+      const itemsToInsert = newItems.map((pi) => ({
+        expense_id: expense.id,
+        data_compra: pi.dataCompra,
+        descricao: pi.descricao,
+        categoria_c6: pi.categoriaC6,
+        parcela: pi.parcela,
+        valor: pi.valorBrl,
+      }))
+
+      const { data: inserted, error } = await supabase
+        .from('invoice_items')
+        .insert(itemsToInsert)
+        .select()
+
+      if (error) throw new Error(error.message)
+
+      // Update local items and total
+      const insertedItems = (inserted ?? []) as InvoiceItem[]
+      setItems((prev) => [...prev, ...insertedItems])
+
+      const addedTotal = newItems.reduce((sum, i) => sum + i.valorBrl, 0)
+      const newTotal = Math.round((total + addedTotal) * 100) / 100
+      await supabase.from('expenses').update({ valor: newTotal }).eq('id', expense.id)
+      onExpenseUpdated({ ...expense, valor: newTotal })
+
+      showToast(`${newItems.length} transação(ões) adicionada(s)!`, 'success')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro ao processar imagens'
+      showToast(msg, 'error')
+    } finally {
+      setUploading(false)
+      setUploadFiles([])
+      setUploadProgress(null)
     }
   }
 
@@ -420,6 +561,195 @@ export function InvoiceDetailModal({
               </div>
             </div>
           ))}
+
+          {/* Add manual transaction */}
+          {showAddForm ? (
+            <div style={{
+              background: 'var(--bg)',
+              borderRadius: 12,
+              border: '1.5px solid #2563eb',
+              padding: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+            }}>
+              <input
+                type="text"
+                placeholder="Descrição"
+                value={addDescricao}
+                onChange={(e) => setAddDescricao(e.target.value)}
+                autoFocus
+                style={{
+                  border: '1.5px solid var(--border)',
+                  borderRadius: 8,
+                  padding: '8px 10px',
+                  fontSize: 13,
+                  color: 'var(--text)',
+                  background: 'var(--card-bg)',
+                  outline: 'none',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, border: '1.5px solid var(--border)', borderRadius: 8, padding: '8px 10px', background: 'var(--card-bg)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>R$</span>
+                  <input
+                    type="number"
+                    placeholder="0,00"
+                    value={addValor}
+                    onChange={(e) => setAddValor(e.target.value)}
+                    style={{
+                      flex: 1,
+                      border: 'none',
+                      outline: 'none',
+                      fontSize: 13,
+                      color: 'var(--text)',
+                      background: 'transparent',
+                      textAlign: 'right',
+                    }}
+                  />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Parcela (ex: 1/3)"
+                  value={addParcela}
+                  onChange={(e) => setAddParcela(e.target.value)}
+                  style={{
+                    width: 90,
+                    border: '1.5px solid var(--border)',
+                    borderRadius: 8,
+                    padding: '8px 10px',
+                    fontSize: 13,
+                    color: 'var(--text)',
+                    background: 'var(--card-bg)',
+                    outline: 'none',
+                  }}
+                />
+              </div>
+              <input
+                type="date"
+                value={addDataCompra}
+                onChange={(e) => setAddDataCompra(e.target.value)}
+                style={{
+                  border: '1.5px solid var(--border)',
+                  borderRadius: 8,
+                  padding: '8px 10px',
+                  fontSize: 13,
+                  color: 'var(--text)',
+                  background: 'var(--card-bg)',
+                  outline: 'none',
+                }}
+              />
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={handleAddItem}
+                  disabled={adding}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: '#2563eb',
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: adding ? 'not-allowed' : 'pointer',
+                    opacity: adding ? 0.6 : 1,
+                  }}
+                >
+                  {adding ? 'Adicionando...' : 'Adicionar'}
+                </button>
+                <button
+                  onClick={() => { setShowAddForm(false); setAddDescricao(''); setAddValor(''); setAddParcela('') }}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: 'var(--bg2)',
+                    color: 'var(--text2)',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => setShowAddForm(true)}
+                style={{
+                  flex: 1,
+                  padding: '10px 0',
+                  borderRadius: 10,
+                  border: '1.5px dashed var(--border)',
+                  background: 'none',
+                  color: 'var(--text2)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                Adicionar
+              </button>
+              <label
+                style={{
+                  flex: 1,
+                  padding: '10px 0',
+                  borderRadius: 10,
+                  border: '1.5px dashed var(--border)',
+                  background: 'none',
+                  color: 'var(--text2)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  opacity: uploading ? 0.6 : 1,
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                {uploading ? 'Processando...' : 'Importar'}
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  multiple
+                  onChange={(e) => handleUploadImages(e.target.files)}
+                  disabled={uploading}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+          )}
+
+          {/* Upload progress */}
+          {uploading && uploadProgress && (
+            <div style={{
+              padding: '10px 12px',
+              borderRadius: 10,
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              textAlign: 'center',
+            }}>
+              <p style={{ fontSize: 12, color: 'var(--text2)', margin: 0 }}>
+                Processando imagem {uploadProgress.current} de {uploadProgress.total}...
+              </p>
+            </div>
+          )}
 
           {/* Total footer */}
           <div style={{
