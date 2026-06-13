@@ -40,7 +40,6 @@ export function InvoiceDetailModal({
   const [adding, setAdding] = useState(false)
 
   // Upload state
-  const [uploadFiles, setUploadFiles] = useState<File[]>([])
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
@@ -174,7 +173,6 @@ export function InvoiceDetailModal({
     if (!files || files.length === 0) return
 
     const fileArray = Array.from(files)
-    setUploadFiles(fileArray)
     setUploading(true)
     setUploadProgress({ current: 0, total: fileArray.length })
 
@@ -238,7 +236,6 @@ export function InvoiceDetailModal({
       showToast(msg, 'error')
     } finally {
       setUploading(false)
-      setUploadFiles([])
       setUploadProgress(null)
     }
   }
